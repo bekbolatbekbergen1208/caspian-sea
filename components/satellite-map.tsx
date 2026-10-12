@@ -13,6 +13,7 @@ import {
   Minus,
 } from "lucide-react";
 import { regions } from "@/lib/data";
+import { browseLayers, browseTiles, completeBrowseDay } from "@/lib/satellite";
 import { Lang, words } from "@/lib/i18n";
 export default function SatelliteMap({
   region = "aktau",
@@ -37,6 +38,23 @@ export default function SatelliteMap({
     [error, setError] = useState("");
   const drawingRef = useRef(false);
   const t = words[lang];
+  const [browseSource, setBrowseSource] = useState("terra"),
+    [browseDate, setBrowseDate] = useState("2024-09-29"),
+    [metadata, setMetadata] = useState<any>(null);
+  const config = browseLayers.find((x) => x.id === browseSource)!;
+  useEffect(() => {
+    fetch("/api/browse-metadata")
+      .then((r) => {
+        if (!r.ok) throw new Error("NASA метадеректері жүктелмеді");
+        return r.json();
+      })
+      .then((j: any) => {
+        setMetadata(j);
+        const latest = j.layers.find((l: any) => l.id === "terra")?.latest;
+        if (latest) setBrowseDate(completeBrowseDay(latest));
+      })
+      .catch((e) => setError(e.message));
+  }, []);
   useEffect(() => {
     if (!host.current) return;
     const r = regions.find((x) => x.id === region) || regions[0];
@@ -61,7 +79,7 @@ export default function SatelliteMap({
             ],
             tileSize: 256,
             maxzoom: 9,
-            attribution: "NASA GIBS · Terra/MODIS · 2024-09-29 · 250 m",
+            attribution: "NASA GIBS · imagery date and source shown above",
           },
         },
         layers: [
@@ -112,6 +130,13 @@ export default function SatelliteMap({
       map.current = null;
     };
   }, []);
+  useEffect(() => {
+    const m = map.current;
+    if (!ready || !m) return;
+    const source = m.getSource("satellite") as maplibregl.RasterTileSource;
+    source.setTiles([browseTiles(config.layer, browseDate)]);
+    setError("");
+  }, [ready, browseSource, browseDate]);
   useEffect(() => {
     drawingRef.current = drawing;
     if (map.current)
@@ -235,7 +260,7 @@ export default function SatelliteMap({
       <div className="map-top">
         <span className="map-label">
           <span className="live-dot" />
-          {image ? "SENTINEL-2 L2A" : "NASA MODIS · 29.09.2024"}
+          {image ? "SENTINEL-2 L2A" : `${config.title} · ${browseDate}`}
         </span>
         <div className="segmented">
           <button
@@ -252,6 +277,42 @@ export default function SatelliteMap({
           </button>
         </div>
       </div>
+      {!image && (
+        <div className="browse-controls">
+          <select
+            aria-label="Satellite source"
+            value={browseSource}
+            onChange={(e) => setBrowseSource(e.target.value)}
+          >
+            {browseLayers.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.title}
+              </option>
+            ))}
+          </select>
+          <input
+            aria-label="Satellite imagery date"
+            type="date"
+            value={browseDate}
+            max={
+              metadata?.layers.find((l: any) => l.id === browseSource)?.latest
+            }
+            min={metadata?.layers
+              .find((l: any) => l.id === browseSource)
+              ?.intervals[0]?.slice(0, 10)}
+            onChange={(e) => {
+              if (e.target.value) setBrowseDate(e.target.value);
+            }}
+          />
+          <span>
+            {lang === "en"
+              ? "Daily browse imagery; not a 10 m measurement"
+              : lang === "ru"
+                ? "Дневной обзорный слой; не измерение 10 м"
+                : "Күндік шолу қабаты; 10 м өлшеу емес"}
+          </span>
+        </div>
+      )}
       <div className="map-tools">
         <button title="Zoom in" onClick={() => map.current?.zoomIn()}>
           <Plus size={18} />
@@ -303,7 +364,9 @@ export default function SatelliteMap({
       )}
       <div className="map-legend">
         <Layers size={14} />
-        {image ? "Copernicus · Sentinel-2" : "NASA MODIS · 250 m"}
+        {image
+          ? "Copernicus · Sentinel-2"
+          : `${config.title} · ${config.resolution}`}
         {shoreline && (
           <label>
             <input

@@ -48,6 +48,7 @@ import { words, Lang } from "@/lib/i18n";
 import { regions, photos, sources, Analysis } from "@/lib/data";
 import { browserDB } from "@/lib/supabase";
 import { methodology } from "@/lib/methodology";
+const BrowseCompare = dynamic(() => import("./browse-compare"), { ssr: false });
 const AnalyticsChart = dynamic(() => import("./analytics-chart"), {
   ssr: false,
   loading: () => <div className="empty-inline">Loading chart…</div>,
@@ -435,8 +436,8 @@ function Home({ lang, results }: { lang: Lang; results: Analysis[] }) {
         transition={{ duration: 0.5 }}
       >
         <img
-          src="/images/caspian-preview.jpg"
-          alt="Caspian Sea, Aqua MODIS, 4 June 2010"
+          src="/images/caspian-2026-preview.jpg"
+          alt="Caspian Sea, NASA Terra MODIS daily imagery, 11 October 2026"
           className="hero-image"
         />
         <div className="hero-shade" />
@@ -484,12 +485,12 @@ function Home({ lang, results }: { lang: Lang; results: Analysis[] }) {
         </div>
         <a
           className="hero-credit"
-          href={photos.find((p) => p.id === "caspian")!.url}
+          href={photos.find((p) => p.id === "caspian-2026")!.url}
           target="_blank"
           rel="noreferrer"
         >
           <Satellite size={14} />
-          Aqua / MODIS · 04.06.2010 · {t.archive}
+          Terra / MODIS · 11.10.2026 · NASA GIBS
           <ArrowUpRight size={12} />
         </a>
       </motion.section>
@@ -816,8 +817,8 @@ function Explorer({
 }) {
   const t = words[lang];
   const [region, setRegion] = useState("aktau"),
-    [start, setStart] = useState("2024-09-01"),
-    [end, setEnd] = useState("2024-09-30"),
+    [start, setStart] = useState("2026-10-01"),
+    [end, setEnd] = useState("2026-10-11"),
     [cloud, setCloud] = useState(20),
     [scenes, setScenes] = useState<any[]>([]),
     [selected, setSelected] = useState<any>(null),
@@ -826,7 +827,8 @@ function Explorer({
     [busy, setBusy] = useState(false),
     [searched, setSearched] = useState(false),
     [error, setError] = useState(""),
-    [polygon, setPolygon] = useState<any>(null);
+    [polygon, setPolygon] = useState<any>(null),
+    [preview, setPreview] = useState<string | undefined>();
   const reg = regions.find((x) => x.id === region)!;
   useEffect(() => {
     const r = new URLSearchParams(window.location.search).get("region");
@@ -838,10 +840,17 @@ function Explorer({
     },
     [image],
   );
+  useEffect(
+    () => () => {
+      if (preview) URL.revokeObjectURL(preview);
+    },
+    [preview],
+  );
   async function search() {
     setBusy(true);
     setError("");
     setSelected(null);
+    setPreview(undefined);
     setImage(undefined);
     try {
       const j: any = await (
@@ -859,6 +868,14 @@ function Explorer({
     setBusy(true);
     setError("");
     try {
+      if (scene.public_preview) {
+        setLayer("true");
+        const r = await api("scene-preview", { id: scene.id });
+        setPreview(URL.createObjectURL(await r.blob()));
+        setSelected(scene);
+        setImage(undefined);
+        return;
+      }
       const r = await api("imagery", {
         bbox: reg.bbox,
         date: scene.date.slice(0, 10),
@@ -939,6 +956,7 @@ function Explorer({
                 ? "Спектральный слой"
                 : "Спектрлік қабат"}
             <select
+              disabled={!!selected?.public_preview}
               value={layer}
               onChange={(e) => {
                 setLayer(e.target.value);
@@ -954,10 +972,10 @@ function Explorer({
             <ShieldCheck size={17} />
             <p>
               {lang === "en"
-                ? "The base satellite layer is NASA MODIS, 29 Sep 2024. Search to load Sentinel-2 scenes."
+                ? "NASA MODIS/VIIRS dates are selectable, including 2026. Public Sentinel-2 catalog and previews need no key; full spectral processing requires credentials."
                 : lang === "ru"
-                  ? "Базовый слой: NASA MODIS, 29.09.2024. Найдите снимки, чтобы загрузить Sentinel-2."
-                  : "Базалық спутниктік қабат: NASA MODIS, 29.09.2024. Sentinel-2 үшін түсірілімді іздеңіз."}
+                  ? "Можно выбрать даты NASA MODIS/VIIRS, включая 2026. Каталог и preview Sentinel-2 открыты; спектральная обработка требует ключей."
+                  : "NASA MODIS/VIIRS қабатында 2026 күндерін таңдаңыз. Sentinel-2 каталогы мен preview кілтсіз ашылады; толық спектрлік өңдеуге кілт қажет."}
             </p>
           </div>
           {polygon && (
@@ -986,6 +1004,35 @@ function Explorer({
           onPolygon={setPolygon}
         />
       </div>
+      {preview && selected && (
+        <div className="panel sentinel-preview">
+          <img src={preview} alt={`Sentinel-2 quicklook ${selected.date}`} />
+          <div>
+            <span className="eyebrow">OFFICIAL COPERNICUS QUICKLOOK</span>
+            <h3>Sentinel-2 · {selected.date.slice(0, 10)}</h3>
+            <p>{selected.id}</p>
+            <p>
+              {lang === "en"
+                ? "Official tile preview. Not a georeferenced raster for area measurement."
+                : lang === "ru"
+                  ? "Официальный preview тайла. Не георастр для измерения площади."
+                  : "Ресми тайл preview-ы. Аудан өлшеуге арналған георастр емес."}
+            </p>
+            <button
+              className="button secondary"
+              onClick={() =>
+                download(
+                  "sentinel-preview-metadata.json",
+                  JSON.stringify(selected),
+                )
+              }
+            >
+              <Download size={16} />
+              Metadata JSON
+            </button>
+          </div>
+        </div>
+      )}
       {error && <Notice text={error} />}
       <div className="panel scenes-panel">
         <div className="panel-title">
@@ -1058,7 +1105,7 @@ function Compare({
   onResult: (r: Analysis) => void;
 }) {
   const t = words[lang];
-  const [mode, setMode] = useState<"archive" | "sentinel">("archive"),
+  const [mode, setMode] = useState<"archive" | "sentinel" | "browse">("browse"),
     [projectId, setProjectId] = useState<string | undefined>(),
     [region, setRegion] = useState("aktau"),
     [before, setBefore] = useState("2018-09-01"),
@@ -1170,6 +1217,23 @@ function Compare({
       setBusy(false);
     }
   }
+  if (mode === "browse")
+    return (
+      <>
+        <div className="compare-toolbar panel">
+          <div className="segmented">
+            <button className="selected">NASA · 2026</button>
+            <button onClick={() => setMode("sentinel")}>
+              Sentinel-2 · NDWI
+            </button>
+            <button onClick={() => setMode("archive")}>
+              NASA · 2006 / 2024
+            </button>
+          </div>
+        </div>
+        <BrowseCompare lang={lang} />
+      </>
+    );
   const p =
     mode === "archive"
       ? {
@@ -1183,6 +1247,7 @@ function Compare({
     <>
       <div className="compare-toolbar panel">
         <div className="segmented">
+          <button onClick={() => setMode("browse")}>NASA · 2026</button>
           <button
             className={mode === "archive" ? "selected" : ""}
             onClick={() => {

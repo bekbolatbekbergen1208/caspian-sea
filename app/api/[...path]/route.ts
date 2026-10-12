@@ -1,3 +1,11 @@
+import {
+  browseMetadata,
+  browseImage,
+  browseImageSchema,
+  publicCatalog,
+  publicPreview,
+  previewSchema,
+} from "@/lib/public-satellite";
 import { NextResponse } from "next/server";
 import {
   AppError,
@@ -52,6 +60,7 @@ export async function GET(
 ) {
   try {
     const path = (await params).path.join("/");
+    if (path === "browse-metadata") return json(await browseMetadata());
     if (path === "status")
       return json({
         copernicus: !!(
@@ -99,7 +108,35 @@ export async function POST(
     if (raw.length > 65536)
       throw new AppError(413, "Сұрау тым үлкен. Полигон нүктелерін азайтыңыз.");
     const body = JSON.parse(raw);
-    if (path === "scenes") return json(await catalog(querySchema.parse(body)));
+    if (path === "browse-image") {
+      const input = browseImageSchema.parse(body);
+      const r = await browseImage(input);
+      return new Response(r.body, {
+        headers: {
+          "Content-Type": "image/png",
+          "Cache-Control": "private,max-age=300",
+          "X-Imagery-Date": input.date,
+        },
+      });
+    }
+    if (path === "scene-preview") {
+      const input = previewSchema.parse(body);
+      const r = await publicPreview(input.id);
+      return new Response(r.body, {
+        headers: {
+          "Content-Type": "image/jpeg",
+          "Cache-Control": "private,max-age=300",
+        },
+      });
+    }
+    if (path === "scenes") {
+      const input = querySchema.parse(body);
+      return json(
+        process.env.COPERNICUS_CLIENT_ID && process.env.COPERNICUS_CLIENT_SECRET
+          ? await catalog(input)
+          : await publicCatalog(input),
+      );
+    }
     if (path === "imagery") {
       const r = await imagery(imagerySchema.parse(body));
       return new Response(r.body, {
@@ -226,15 +263,13 @@ export async function POST(
           "Нәтиже сақталмады. Supabase миграциясын тексеріңіз.",
         );
       const path = `${user.id}/${data}/shoreline.geojson`;
-      const upload = await db.storage
-        .from("research-assets")
-        .upload(
-          path,
-          new Blob([JSON.stringify(job.result.shoreline)], {
-            type: "application/geo+json",
-          }),
-          { upsert: true },
-        );
+      const upload = await db.storage.from("research-assets").upload(
+        path,
+        new Blob([JSON.stringify(job.result.shoreline)], {
+          type: "application/geo+json",
+        }),
+        { upsert: true },
+      );
       return json(
         { project_id: data, storage: upload.error ? "unavailable" : "saved" },
         201,

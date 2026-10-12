@@ -38,6 +38,44 @@ export const regions = [
 ];
 export const photos = [
   {
+    id: "caspian-2026",
+    title: "Каспий теңізі · 11.10.2026",
+    en: "Caspian Sea · 11 Oct 2026",
+    ru: "Каспийское море · 11.10.2026",
+    image: "/images/caspian-2026.jpg",
+    date: "2026-10-11",
+    satellite: "Terra / MODIS · daily browse",
+    source: "NASA GIBS / Worldview",
+    url: "https://worldview.earthdata.nasa.gov/?t=2026-10-11&l=MODIS_Terra_CorrectedReflectance_TrueColor&v=46,36,55,48",
+    credit: "NASA GIBS / Terra MODIS",
+    description:
+      "2026 жылғы күндік шолу суреті. Шекара: 46–55° E, 36–48° N. Бұлттар көрінеді; суреттен сандық NDWI өлшемі алынбайды.",
+    descriptionEn:
+      "Daily browse image from 2026. Extent: 46–55° E, 36–48° N. Clouds are visible; no quantitative NDWI measurement is derived.",
+    descriptionRu:
+      "Дневной обзорный снимок 2026 года. Границы: 46–55° E, 36–48° N. Видны облака; количественные измерения NDWI не рассчитываются.",
+  },
+  {
+    id: "sentinel-2026",
+    title: "Ақтау маңындағы Sentinel-2 · 2026",
+    en: "Sentinel-2 near Aktau · 2026",
+    ru: "Sentinel-2 в районе Актау · 2026",
+    image: "/images/sentinel-2026.jpg",
+    date: "2026-10-11",
+    satellite: "Sentinel-2B / MSI L2A",
+    source: "Copernicus Data Space",
+    url: "https://stac.dataspace.copernicus.eu/v1/collections/sentinel-2-l2a/items/S2B_MSIL2A_20261011T072829_N0513_R049_T39TWJ_20261011T093524",
+    credit: "Copernicus Sentinel data 2026",
+    license: "Copernicus open data terms",
+    licenseUrl: "https://dataspace.copernicus.eu/terms-and-conditions",
+    description:
+      "39TWJ тайлының ресми quicklook-ы. Түсірілім: 2026-10-11 07:28:29 UTC. Тайлының бұлттылығы 7.71%; бұл preview аудан есептеуге қолданылмайды.",
+    descriptionEn:
+      "Official quicklook of tile 39TWJ, acquired 2026-10-11 07:28:29 UTC. Tile cloud cover 7.71%; this preview is not used for area measurements.",
+    descriptionRu:
+      "Официальный quicklook тайла 39TWJ, снят 2026-10-11 07:28:29 UTC. Облачность тайла 7.71%; preview не используется для измерения площадей.",
+  },
+  {
     id: "aktau",
     title: "Ақтау жағалауындағы серуен жолы",
     en: "Aktau waterfront",
@@ -171,6 +209,21 @@ export type Analysis = {
   limitations: string[];
 };
 export const sources = [
+  [
+    "Copernicus public STAC",
+    "2026 Sentinel-2 каталогы мен ресми quicklook; іздеу кілтсіз",
+    "https://documentation.dataspace.copernicus.eu/APIs/STAC.html",
+  ],
+  [
+    "NASA GIBS / Worldview",
+    "MODIS / VIIRS күндік қабаттары, 2026 суреттерін таңдау",
+    "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/1.0.0/WMTSCapabilities.xml",
+  ],
+  [
+    "CoastSeg дайын AI модельдері",
+    "SegFormer · су, толқын, шөгінді, басқа құрлық; Каспийде валидация қажет",
+    "https://satelliteshorelines.github.io/CoastSeg/models/",
+  ],
   [
     "Copernicus Data Space",
     "Sentinel-2 L2A · Catalog, Process, OAuth2",
