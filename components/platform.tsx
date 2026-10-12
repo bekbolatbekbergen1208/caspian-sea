@@ -48,6 +48,9 @@ import { words, Lang } from "@/lib/i18n";
 import { regions, photos, sources, Analysis } from "@/lib/data";
 import { browserDB } from "@/lib/supabase";
 import { methodology } from "@/lib/methodology";
+const ShorelineModel = dynamic(() => import("./shoreline-model"), {
+  ssr: false,
+});
 const BrowseCompare = dynamic(() => import("./browse-compare"), { ssr: false });
 const AnalyticsChart = dynamic(() => import("./analytics-chart"), {
   ssr: false,
@@ -68,11 +71,18 @@ const routes = [
   ["compare", "/compare", GitCompareArrows],
   ["analytics", "/analytics", ChartNoAxesCombined],
   ["research", "/research", FlaskConical],
+  ["shorelineAI", "/shoreline-ai", BrainCircuit],
   ["ai", "/ai-assistant", BrainCircuit],
   ["gallery", "/gallery", Images],
 ] as const;
 const labelKey = (page: string) =>
-  page === "ai-assistant" ? "ai" : page === "research/new" ? "new" : page;
+  page === "shoreline-ai"
+    ? "shorelineAI"
+    : page === "ai-assistant"
+      ? "ai"
+      : page === "research/new"
+        ? "new"
+        : page;
 async function api(path: string, body?: unknown) {
   const db = browserDB(),
     session = db ? await db.auth.getSession() : null;
@@ -346,6 +356,7 @@ export default function Platform({ page }: { page: string }) {
                   </Link>
                 )}
               </div>
+              {page === "shoreline-ai" && <ShorelineModel lang={lang} />}
               {page === "explorer" && (
                 <Explorer lang={lang} onResult={addResult} />
               )}{" "}
@@ -390,6 +401,7 @@ function descriptions(page: string, lang: Lang) {
     analytics: "Есептелген нәтижелерге сүйенген ғылыми аналитика.",
     research: "Сұрақтан — ғылыми қорытындыға дейін.",
     "research/new": "Зерттеу аумағы мен уақыт кезеңдерін таңдаңыз.",
+    "shoreline-ai": "Дайын модель арқылы су мен құрлықты ажыратыңыз.",
     "ai-assistant": "Деректерді түсінуге көмектесетін ғылыми серіктес.",
     gallery: "Ғарыштан көрінген Каспий. Тек шынайы түсірілімдер.",
     methodology: "Әр өлшемнің артында — тексерілетін әдіс.",
@@ -403,6 +415,7 @@ function descriptions(page: string, lang: Lang) {
     analytics: "Scientific analytics from calculated results.",
     research: "From a question to a scientific conclusion.",
     "research/new": "Choose your study area and observation periods.",
+    "shoreline-ai": "Classify water and land with a pretrained model.",
     "ai-assistant": "Your scientific partner for understanding the data.",
     gallery: "The Caspian from space. Only real observations.",
     methodology: "A reproducible method behind every measurement.",
@@ -416,6 +429,7 @@ function descriptions(page: string, lang: Lang) {
     analytics: "Научная аналитика рассчитанных результатов.",
     research: "От вопроса к научному заключению.",
     "research/new": "Выберите область и периоды наблюдения.",
+    "shoreline-ai": "Классифицируйте воду и сушу готовой моделью.",
     "ai-assistant": "Научный партнёр для понимания данных.",
     gallery: "Каспий из космоса. Только реальные снимки.",
     methodology: "Проверяемый метод за каждым измерением.",
@@ -828,7 +842,8 @@ function Explorer({
     [searched, setSearched] = useState(false),
     [error, setError] = useState(""),
     [polygon, setPolygon] = useState<any>(null),
-    [preview, setPreview] = useState<string | undefined>();
+    [preview, setPreview] = useState<string | undefined>(),
+    [showModel, setShowModel] = useState(false);
   const reg = regions.find((x) => x.id === region)!;
   useEffect(() => {
     const r = new URLSearchParams(window.location.search).get("region");
@@ -851,6 +866,7 @@ function Explorer({
     setError("");
     setSelected(null);
     setPreview(undefined);
+    setShowModel(false);
     setImage(undefined);
     try {
       const j: any = await (
@@ -1005,6 +1021,28 @@ function Explorer({
         />
       </div>
       {preview && selected && (
+        <button
+          className="button primary inline-model"
+          onClick={() => setShowModel(!showModel)}
+        >
+          <BrainCircuit size={17} />
+          {lang === "en"
+            ? "Segment this image with AI"
+            : lang === "ru"
+              ? "Сегментировать снимок с AI"
+              : "Осы суретті AI моделіне беру"}
+        </button>
+      )}
+      {showModel && preview && selected && (
+        <div className="inline-model">
+          <ShorelineModel
+            lang={lang}
+            imageUrl={preview}
+            sceneId={selected.id}
+          />
+        </div>
+      )}
+      {preview && selected && (
         <div className="panel sentinel-preview">
           <img src={preview} alt={`Sentinel-2 quicklook ${selected.date}`} />
           <div>
@@ -1113,6 +1151,7 @@ function Compare({
     [slider, setSlider] = useState(50),
     [polygon, setPolygon] = useState<any>(null),
     [threshold, setThreshold] = useState(0),
+    [mlCompare, setMlCompare] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [result, setResult] = useState<Analysis | null>(null),
@@ -1208,6 +1247,7 @@ function Compare({
         region,
         threshold,
         polygon,
+        ml_compare: mlCompare,
       });
       setResult(a);
       onResult(a);
@@ -1325,6 +1365,14 @@ function Compare({
               value={threshold}
               onChange={(e) => setThreshold(+e.target.value)}
             />
+          </label>
+          <label className="model-compare-option">
+            <input
+              type="checkbox"
+              checked={mlCompare}
+              onChange={(e) => setMlCompare(e.target.checked)}
+            />
+            NDWI + SegFormer
           </label>
           <button className="button secondary" disabled={busy} onClick={load}>
             <Satellite size={16} />
@@ -1462,6 +1510,34 @@ function Compare({
       {result && (
         <>
           <ResultCards result={result} lang={lang} />
+          {(result as any).ml_comparison && (
+            <div className="panel ml-comparison">
+              <h3>NDWI / SegFormer</h3>
+              <p>
+                {lang === "kk"
+                  ? "Жіктеуіштер арасындағы сәйкестік — нақты дәлдік бағасы емес."
+                  : lang === "ru"
+                    ? "Совпадение классификаторов — не оценка фактической точности."
+                    : "Classifier agreement is not measured accuracy."}
+              </p>
+              <div>
+                {["before", "after"].map((key) => (
+                  <span key={key}>
+                    {key === "before" ? result.before : result.after}:{" "}
+                    {(
+                      (result as any).ml_comparison[key].agreement_fraction *
+                      100
+                    ).toFixed(1)}
+                    % ·{" "}
+                    {(result as any).ml_comparison[
+                      key
+                    ].water_disagreement_km2.toFixed(4)}{" "}
+                    км²
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="panel">
             <SatelliteMap
               region={region}

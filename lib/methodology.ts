@@ -31,7 +31,7 @@ export const methodology: Record<Lang, [string, string][]> = {
     ],
     [
       "Қорытынды",
-      "Түсірілім ID-лері, күндер, проекция, шек, алгоритм нұсқасы және есептеу уақыты міндетті түрде сақталады. Machine Learning кейін алмастырылатын модуль ретінде қосылады; негізгі алгоритм — NDWI.",
+      "Түсірілім ID-лері, күндер, проекция, шек, алгоритм нұсқасы және есептеу уақыты міндетті түрде сақталады. CoastSeg SegFormer қосымша жіктеуіш ретінде қосылды; негізгі аудан алгоритмі — NDWI. Жіктеуіштердің сәйкестігі ground-truth дәлдігі емес.",
     ],
   ],
   ru: [
@@ -65,7 +65,7 @@ export const methodology: Record<Lang, [string, string][]> = {
     ],
     [
       "Вывод",
-      "Сохраняйте ID снимков, даты, проекцию, порог, версию алгоритма и время расчёта. Модуль машинного обучения можно добавить позднее; текущий базовый алгоритм — NDWI.",
+      "Сохраняйте ID снимков, даты, проекцию, порог, версию алгоритма и время расчёта. CoastSeg SegFormer подключён как дополнительный классификатор; базовый алгоритм площадей — NDWI. Совпадение классификаторов не является ground-truth точностью.",
     ],
   ],
   en: [
@@ -99,7 +99,7 @@ export const methodology: Record<Lang, [string, string][]> = {
     ],
     [
       "Conclusion",
-      "Record scene IDs, dates, projection, threshold, algorithm version and processing time. Interpret results alongside quality flags. Machine learning is a replaceable future module; this baseline uses NDWI.",
+      "Record scene IDs, dates, projection, threshold, algorithm version and processing time. Interpret results alongside quality flags. CoastSeg SegFormer is an optional classifier; area calculations use the NDWI baseline. Classifier agreement is not ground-truth accuracy.",
     ],
   ],
 };

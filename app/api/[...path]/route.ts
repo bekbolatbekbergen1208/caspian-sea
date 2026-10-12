@@ -155,6 +155,7 @@ export async function POST(
           region: z.string().max(100),
           threshold: z.number().min(-0.5).max(0.5).default(0),
           polygon: z.any().optional(),
+          ml_compare: z.boolean().default(false),
         })
         .refine(
           (x) => x.before < x.after,

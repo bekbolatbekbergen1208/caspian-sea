@@ -15,6 +15,7 @@ export default async function Page({
       "research",
       "research/new",
       "ai-assistant",
+      "shoreline-ai",
       "gallery",
       "methodology",
       "about",

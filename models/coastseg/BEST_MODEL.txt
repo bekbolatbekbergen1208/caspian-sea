@@ -1,0 +1,1 @@
+Global_4class_rgb_512_v2_segformer_fullmodel.h5

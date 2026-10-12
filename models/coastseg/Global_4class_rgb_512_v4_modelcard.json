@@ -1,0 +1,51 @@
+{
+	"DETAILS": {
+	"NAME": "Doodleverse/CoastSeg Segformer models for 4-class (water, whitewater, sediment and other) segmentation of PlanetScope, Sentinel-2 and Landsat-5/7/8/9 visible-band (RGB) images of coasts.  'Global' version.",
+    "DATE": "2024-11-04",
+    "URL":"10.5281/zenodo.14036903",
+    "CITATION":"Buscombe, D. (2024) Doodleverse/CoastSeg Segformer models for 4-class (water, whitewater, sediment and other) segmentation of PlanetScope, Sentinel-2 and Landsat-5/7/8/9 visible-band (RGB) images of coasts.  'Global' version. Zenodo data release 10.5281/zenodo.14036903",
+    "QUERIES": "https://github.com/Doodleverse/segmentation_zoo/issues",
+    "CREDIT":"Daniel Buscombe, @MARDAScience",
+    "INTENDED_PURPOSE":"Landsat-7/8/9, Planetscope, and Sentinel-2 satellite image segmentation",
+    "KEYWORDS": {
+      "1": "Landsat",
+      "2": "Landsat-8",
+      "3": "Landsat-7",
+      "4": "Landsat-9",
+      "5": "Sentinel-2",
+      "6": "Planetscope",
+	  "7": "water",
+	  "8": "whitewater",
+	  "9": "sediment",
+	  "10": "other"
+    }
+	},	
+	"MODEL": {
+	"NAME": "segformer",
+	"TARGET_SIZE": [512,512]
+	},
+	"TRAINING": {
+    "BATCH_SIZE": 24,
+	"PATIENCE": 10,
+	"MAX_EPOCHS": 100,
+	"VALIDATION_SPLIT": 0.6,
+	"RAMPUP_EPOCHS": 40,
+	"SUSTAIN_EPOCHS": 0.0,
+	"EXP_DECAY": 0.9,
+	"START_LR":  1e-8,
+	"MIN_LR": 1e-8,
+	"MAX_LR": 1e-3
+	},
+	"AUGMENTATION": {
+    "AUGMENTATION_USED": true,
+	"AUG_ROT": 5,
+	"AUG_ZOOM": 0.05,
+	"AUG_WIDTHSHIFT": 0.05,
+	"AUG_HEIGHTSHIFT": 0.05,
+	"AUG_HFLIP": true,
+	"AUG_VFLIP": true,
+	"AUG_LOOPS": 10,
+	"AUG_COPIES": 5
+	}     
+}
+

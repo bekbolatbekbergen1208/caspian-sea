@@ -62,3 +62,7 @@ next-env.d.ts
 .pytest_cache/
 *.tsbuildinfo
 /data/
+/models/coastseg/*.h5
+/models/coastseg/verified-preview-mask.png
+/.cache/
+/.model-qa/

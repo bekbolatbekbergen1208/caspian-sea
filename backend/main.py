@@ -16,7 +16,7 @@ from rasterio.transform import from_origin
 from shapely.geometry import shape, box, mapping
 from shapely.ops import transform as transform_geometry
 from pyproj import Transformer
-from processing import summarize, ALGORITHM
+from processing import summarize, classify, ALGORITHM
 
 DATA_DIR=Path(os.environ.get('DATA_DIR','./data'))
 DATA_DIR.mkdir(parents=True,exist_ok=True)
@@ -48,6 +48,7 @@ class AnalyzeInput(BaseModel):
     region:str=Field(max_length=100)
     threshold:float=Field(default=0,ge=-.5,le=.5)
     polygon:Optional[dict]=None
+    ml_compare:bool=False
     @model_validator(mode='after')
     def validate_input(self):
         b=self.bbox
@@ -84,8 +85,8 @@ def process(inp:AnalyzeInput):
     if width>1024 or height>1024:raise ValueError('NDWI area is limited to 10.24 × 10.24 km per job. Draw a smaller polygon or select the Aktau study window.')
     transform=from_origin(xmin,ymax,10,10)
     evalscript='''//VERSION=3
-function setup(){return {input:[{bands:["B03","B08","B11","SCL","dataMask"]}],output:{bands:5,sampleType:"FLOAT32"}}}
-function evaluatePixel(s){return [s.B03,s.B08,s.B11,s.SCL,s.dataMask]}'''
+function setup(){return {input:[{bands:["B03","B08","B11","SCL","dataMask","B04","B02"]}],output:{bands:7,sampleType:"FLOAT32"}}}
+function evaluatePixel(s){return [s.B03,s.B08,s.B11,s.SCL,s.dataMask,s.B04,s.B02]}'''
     scenes=[];arrays=[];metadata=[]
     with httpx.Client(timeout=90) as client:
         token=request_retry(client,'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token',data={'grant_type':'client_credentials','client_id':client_id,'client_secret':secret}).json()['access_token']
@@ -103,7 +104,14 @@ function evaluatePixel(s){return [s.B03,s.B08,s.B11,s.SCL,s.dataMask]}'''
                     if ds.width!=width or ds.height!=height:raise ValueError('Unexpected raster grid')
                     if ds.crs and ds.crs!=crs:raise ValueError('Unexpected raster projection')
                     arrays.append(ds.read())
-    result=summarize(arrays[0],arrays[1],transform,crs,mapping(projected),inp.threshold)
+    result=summarize(arrays[0][:5],arrays[1][:5],transform,crs,mapping(projected),inp.threshold)
+    if inp.ml_compare:
+        from model_inference import compare_to_ndwi
+        from rasterio.features import geometry_mask
+        _,_,vb,_=classify(arrays[0][:5],inp.threshold)
+        _,_,va,_=classify(arrays[1][:5],inp.threshold)
+        inside=geometry_mask([mapping(projected)],out_shape=vb.shape,transform=transform,invert=True)
+        result['ml_comparison']=compare_to_ndwi(arrays[0],arrays[1],vb&va&inside,100,inp.threshold)
     result.update({'region':inp.region,'before':inp.before.isoformat(),'after':inp.after.isoformat(),
         'before_scene':';'.join(scenes[0]),'after_scene':';'.join(scenes[1]),'bbox':b,'polygon':mapping(polygon),
         'scene_metadata':{'before':metadata[0],'after':metadata[1]},'created_at':datetime.now(timezone.utc).isoformat(),'source':'Copernicus Sentinel-2 Level-2A',

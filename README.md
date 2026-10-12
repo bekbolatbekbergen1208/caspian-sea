@@ -44,7 +44,7 @@ python3 -m venv .venv
 
 **Жағалау сызығының өзгерісі теңіз деңгейінің тікелей өлшемі емес.** 20 м SCL 10 м торға nearest-neighbor арқылы келтіріледі; оның бастапқы дәлдігі артпайды. Әртүрлі маусымдар мен аумақтардың нәтижелерін тікелей салыстырмаңыз.
 
-Python NDWI модулі `backend/processing.py` ішінде бөлек орналасқан. Кейін ML классификаторын қосуға болады; қазіргі нұсқада ML қолданылғаны туралы мәлімделмейді. GeoPandas/OpenCV/scikit-learn осы baseline үшін қажет емес және орнатылмаған.
+Python NDWI модулі `backend/processing.py` ішінде бөлек орналасқан. Кейін ML классификаторын қосуға болады; ML нұсқасы бөлек ONNX сегментация модулі ретінде қосылды; негізгі аудан есебі — NDWI. GeoPandas/OpenCV/scikit-learn осы baseline үшін қажет емес және орнатылмаған.
 
 ## Нәтижені сақтау және экспорт
 
@@ -71,7 +71,7 @@ Python тесттеріндегі синтетикалық деректер те
 
 | Кезең | Кодта дайын                                                                                               | Қосылым / нақты тексеру                                                                                        |
 | ----- | --------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| 1     | 12 маршрут, дизайн, responsive CSS, dark/light, NASA және Wikimedia галереясы, MapLibre / OSM / NASA GIBS | Браузерде `/`, `/gallery`, `/explorer`; карта үшін интернет пен WebGL қажет                                    |
+| 1     | 13 маршрут, дизайн, responsive CSS, dark/light, NASA және Wikimedia галереясы, MapLibre / OSM / NASA GIBS | Браузерде `/`, `/gallery`, `/explorer`; карта үшін интернет пен WebGL қажет                                    |
 | 2     | Copernicus OAuth, Catalog, Processing, 3 спектрлік қабат, метадеректер, серверлік cache/retry             | Copernicus кілттерін енгізіп `/explorer` іздеу; осы ортада live API кілттері берілмеген                        |
 | 3     | NDWI/SCL/MNDWI, UTM grid, полигон, салыстыру, GeoJSON, аудандар, қашықтық, quality/sensitivity            | Python тесттері; нақты Sentinel-2 есептеуі кілттермен және сервиспен тексерілуі керек                          |
 | 4     | Supabase PostGIS/RLS SQL, Auth, draft жобалар, verified save, Storage, графиктер, CSV/GeoJSON/print-PDF   | Supabase жоба деректері жоқ, миграция нақты базада орындалмаған; қосқаннан кейін екі аккаунтпен RLS тексеріңіз |
@@ -109,6 +109,53 @@ docker run --env-file .env.local -e DATA_DIR=/data -v caspianwatch-data:/data -p
 - `/compare` бетінде NASA суреттерін екі таңдалған күн бойынша бірдей шекарада кілтсіз салыстыруға және PNG жүктеуге болады. Бұл көрнекі салыстыру; спектрлік NDWI/аудан есебі жүргізілмейді.
 - Copernicus OAuth кілттері болмаса `/api/scenes` ресми **public STAC** каталогын пайдаланады. 2026-10-11 Ақтау маңындағы Sentinel-2B 39TWJ тайлы және оның ресми quicklook-ы нақты тексерілді. Quicklook георастр орнына картаға бұрмаланып төселмейді; жеке preview ретінде ашылады. B03/B08 спектрлік өңдеуге бұрынғыдай кілттер және Python сервисі қажет.
 - Галереяға 2026 NASA және Copernicus суреттері, нақты күн/тайл/дереккөз метадеректері қосылды.
-- Дайын жағалау AI моделі: [CoastSeg SegFormer RGB 4-class](https://satelliteshorelines.github.io/CoastSeg/models/). Модель салмақтары жобаға жүктелмеген және NDWI орнына қолданылмайды. Каспийдегі дәлдігін валидациялау керек. Өлшеуге арналған сегментация моделі мен ғылыми түсіндіруге арналған Gemini — екі бөлек қызмет; өз LLM моделін басынан оқыту қажет емес.
+- Дайын жағалау AI моделі: [CoastSeg SegFormer RGB 4-class](https://satelliteshorelines.github.io/CoastSeg/models/). Модель салмақтары ONNX түрінде қосылды; NDWI базалық өлшемін алмастырмайды. Каспийдегі дәлдігін валидациялау керек. Өлшеуге арналған сегментация моделі мен ғылыми түсіндіруге арналған Gemini — екі бөлек қызмет; өз LLM моделін басынан оқыту қажет емес.
 
 Тексерілген жаңа маршруттар: `/api/browse-metadata` → 200, `/api/scenes` → 2026 нақты каталог нәтижелері, `/api/scene-preview` → JPEG, `/api/browse-image` → 2026 PNG. Қолданылған NASA және Copernicus серверлері кілтсіз жауап берді.
+
+## CoastSeg SegFormer моделі қосылды
+
+`/shoreline-ai` — дайын **CoastSeg SegFormer RGB v4** моделімен жұмыс істейтін жаңа бет. Ресми салмақтар: [Zenodo 14036903](https://doi.org/10.5281/zenodo.14036903), Daniel Buscombe, CC BY 4.0. Релиздің v4 салмақтары checksum тексеруімен жүктеліп, ONNX форматына экспортталды. Бұл жоба релиздегі `BEST_MODEL` v2 моделін қолданбайды.
+
+### Кілтсіз браузерлік inference
+
+- Нақты ONNX салмақтары `public/models/coastseg-rgb.onnx` ішінде (шамамен 14.5 MiB).
+- ONNX Runtime Web 1.20.1 WebAssembly CPU арқылы **Web Worker-де** орындалады. UI ағыны ұзақ есептеумен бөгелмейді; тоқтату батырмасы worker-ді аяқтайды.
+- Алғашқы жүктеу ONNX + WASM файлдарын алады. SHA-256 manifest-пен тексеріледі. API кілті, Gemini және Python сервисі қажет емес.
+- RGB 512×512 өлшемге bilinear resize арқылы келтіріліп, барлық RGB пиксельдерінің орташа мәні және adjusted population standard deviation бойынша нормаланады. Бұл CoastSeg RGB preprocessing әдісін қайталайды; браузердің bilinear интерполяциясы Pillow-мен биттік бірдей болмауы мүмкін.
+- Төрт класс: су, толқын, шөгінді, басқа құрлық. Маска мөлдірлігі реттеледі; PNG маскасы және бастапқы дерек/модель/hash/класс белгілері бар JSON экспортталады.
+- `/explorer` ішінде ашық Sentinel-2 preview-ын таңдағаннан кейін «Осы суретті AI моделіне беру» батырмасын басыңыз. Жеке AI бетінде сол ресми 2026-10-11 quicklook әдепкі ретінде ашылады. Жергілікті спутниктік RGB файлды да таңдауға болады; ол сыртқы сервиске жіберілмейді.
+- JPEG preview сегментациясы **сапалық**: км², метрлік шегіну және теңіз деңгейі есептелмейді. Класс үлестері — тек жіктелген 512×512 сурет пиксельдерінің үлесі, географиялық аудан емес. Бұлттарда SCL жоқ. Модельдің Каспий жағалауының нақты дәлдігі әлі өлшенбеген.
+
+### Нақты спектрлік деректермен NDWI / AI салыстыру
+
+`/compare` → Sentinel-2 режиміндегі **NDWI + SegFormer** опциясы Python сервисіне `ml_compare=true` жібереді. Бұл бұрынғы Copernicus және GEO кілттерін талап етеді.
+
+Python сервисіне қосымша:
+
+```sh
+.venv/bin/pip install -r backend/requirements-ml.txt
+```
+
+`ML_MODEL_PATH` — `coastseg-rgb.onnx` жолы; оның жанында `coastseg-rgb.json` болуы керек. Екі кезеңнің B04/B03/B02 арналарынан RGB жасалып, модельге беріледі. NDWI-мен салыстыру тек ортақ AOI/SCL жарамды пиксельдерінде жүргізіледі. Сәйкестік үлесі мен су жіктеуінің келіспейтін ауданы есептеледі. **Бұл модельдің ground-truth дәлдігі емес.** RGB 2.5× reflectance визуализациясы мен 512 resize-ының ықпалы шектеулерде жазылады.
+
+Docker-де қосымша ML тәуелділіктері:
+
+```sh
+docker build --build-arg WITH_ML=true -t caspianwatch-geo backend
+# Mount the exported ONNX and manifest, and override ML_MODEL_PATH=/models/coastseg-rgb.onnx.
+```
+
+### Тексеру және экспортты қайталау
+
+```sh
+.venv/bin/pip install -r backend/requirements-ml.txt
+.venv/bin/python scripts/prepare-model-qa.py
+node scripts/verify-model-web.mjs
+node scripts/verify-worker.mjs
+.venv/bin/python -m pytest -q
+```
+
+Тексерілген ресми Sentinel quicklook-та TensorFlow / ONNX және native ONNX / WASM арасындағы бастапқы 128×128 класс белгілері бірдей болды; logits айырмасы шамамен 0.000004. Нақты worker модельді жүктеп, checksum тексеріп, 512×512 маска қайтарды. **Бұл — орындалу нұсқаларының сәйкестігі, модельдің 100% ғылыми дәлдігі емес.** Браузердегі визуалды UI тексеруі computer-use шектеуіне байланысты аяқталмады.
+
+Модельді қайта экспорттау үшін `backend/requirements-ml-export.txt` тәуелділіктері және түпнұсқа `models/coastseg/Global_4class_rgb_512_v4_segformer.h5` қажет. Файлдың MD5: `d8fea34db908f9924a8dbaac7a479e3a`. `scripts/export-coastseg.py` салмақтарды қатаң жүктеп, ONNX логиттерін TensorFlow-мен салыстырады. Түпнұсқа H5 Git-ке кірмейді; сайтқа inference үшін тек ONNX және manifest жеткілікті.
