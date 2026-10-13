@@ -1,4 +1,9 @@
 import {
+  parseAltimetry,
+  NASA_CASPIAN_URL,
+  type LevelDataset,
+} from "@/lib/altimetry";
+import {
   browseMetadata,
   browseImage,
   browseImageSchema,
@@ -22,6 +27,7 @@ import {
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
 export const dynamic = "force-dynamic";
+let altimetryCache: { until: number; data: LevelDataset } | undefined;
 function json(data: unknown, status = 200) {
   return NextResponse.json(data, {
     status,
@@ -60,6 +66,25 @@ export async function GET(
 ) {
   try {
     const path = (await params).path.join("/");
+    if (path === "altimetry") {
+      limit(req);
+      if (altimetryCache && altimetryCache.until > Date.now())
+        return json(altimetryCache.data);
+      const response = await fetchRetry(NASA_CASPIAN_URL);
+      const raw = await response.text();
+      if (raw.length > 2000000)
+        throw new AppError(502, "NASA dataset exceeded the expected size.");
+      const data = parseAltimetry(raw);
+      const digest = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(raw),
+      );
+      data.sha256 = Array.from(new Uint8Array(digest))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      altimetryCache = { until: Date.now() + 6 * 3600000, data };
+      return json(data);
+    }
     if (path === "browse-metadata") return json(await browseMetadata());
     if (path === "status")
       return json({

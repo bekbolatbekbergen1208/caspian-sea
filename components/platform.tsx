@@ -364,7 +364,8 @@ export default function Platform({ page }: { page: string }) {
 }
 function descriptions(page: string, lang: Lang) {
   const en: Record<string, string> = {
-    forecast: "Choose a date and explore a trend based on measured water area.",
+    forecast:
+      "Choose a date for a satellite-based water-level estimate and conditional shoreline scenarios.",
     explorer: "Real satellite data. Your area of interest.",
     compare: "One coastline. Two moments. Observe change through data.",
     analytics: "Scientific analytics from calculated results.",

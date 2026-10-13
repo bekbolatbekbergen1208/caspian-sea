@@ -3225,3 +3225,116 @@ textarea {
   gap: 12px;
   margin-bottom: 20px;
 }
+.forecast-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.level-intro {
+  padding: 24px;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.level-intro h2 {
+  margin: 10px 0;
+}
+.level-intro p {
+  max-width: 760px;
+}
+.level-content {
+  padding: 24px;
+}
+.level-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+.level-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 22px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.level-card strong {
+  font-size: clamp(22px, 2.4vw, 36px);
+  color: var(--cyan);
+}
+.level-card small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.forecast-warning {
+  padding: 16px 20px;
+  background: rgba(255, 180, 84, 0.08);
+  border: 1px solid rgba(255, 180, 84, 0.35);
+  border-radius: 10px;
+  line-height: 1.7;
+  margin-bottom: 20px;
+}
+.shoreline-scenarios {
+  margin-top: 28px;
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+}
+.slope-input {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.slope-input input {
+  width: 140px;
+  padding: 10px;
+  background: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.image-evidence {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 24px;
+  align-items: start;
+  margin-top: 16px;
+}
+.image-evidence img {
+  width: 100%;
+  border-radius: 12px;
+}
+.level-content a {
+  color: var(--cyan);
+}
+.level-content .button {
+  color: inherit;
+}
+.level-content p,
+.level-intro p {
+  line-height: 1.7;
+}
+.level-content .forecast-metrics p {
+  background: var(--panel-alt);
+  padding: 12px;
+  border-radius: 8px;
+  margin: 0;
+}
+@media (max-width: 900px) {
+  .level-cards {
+    grid-template-columns: 1fr;
+  }
+  .level-intro {
+    flex-direction: column;
+  }
+  .image-evidence {
+    grid-template-columns: 1fr;
+  }
+  .image-evidence img {
+    max-width: 320px;
+  }
+}

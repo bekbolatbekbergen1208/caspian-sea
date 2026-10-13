@@ -1,10 +1,12 @@
 "use client";
+import AltimetryForecast from "./altimetry-forecast";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Analysis } from "@/lib/data";
 import { regions } from "@/lib/data";
 import { forecastSeries, predict } from "@/lib/forecast";
 export default function Forecast({ results }: { results: Analysis[] }) {
+  const [mode, setMode] = useState<"level" | "area">("level");
   const [region, setRegion] = useState("aktau");
   const [date, setDate] = useState(() =>
     new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
@@ -46,8 +48,32 @@ export default function Forecast({ results }: { results: Analysis[] }) {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
+  const tabs = (
+    <div className="forecast-tabs" role="group" aria-label="Forecast source">
+      <button
+        className={"button " + (mode === "level" ? "primary" : "")}
+        onClick={() => setMode("level")}
+      >
+        Satellite water level
+      </button>
+      <button
+        className={"button " + (mode === "area" ? "primary" : "")}
+        onClick={() => setMode("area")}
+      >
+        My measured water area
+      </button>
+    </div>
+  );
+  if (mode === "level")
+    return (
+      <>
+        {tabs}
+        <AltimetryForecast />
+      </>
+    );
   return (
     <div className="forecast-layout">
+      {tabs}
       <section className="panel" style={{ padding: 24 }}>
         <span className="eyebrow">DATE-BASED WATER AREA FORECAST</span>
         <h2>Explore the coast's next observation</h2>
