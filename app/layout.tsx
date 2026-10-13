@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import "./globals.css";
 export const metadata: Metadata = {
-  title: "CaspianWatch AI — Каспийді ғылыммен бақылаймыз",
+  title: "CaspianWatch AI — Monitoring the Caspian through science",
   description:
-    "Каспий жағалауын спутниктік деректер мен NDWI арқылы зерттеу платформасы",
+    "Explore the Caspian coast with satellite observations, NDWI and date-based forecasts",
   icons: { icon: "/favicon.svg" },
 };
 export default function RootLayout({
@@ -12,7 +12,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="kk" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

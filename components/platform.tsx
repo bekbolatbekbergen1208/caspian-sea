@@ -47,6 +47,7 @@ import {
 import { words, Lang } from "@/lib/i18n";
 import { regions, photos, sources, Analysis } from "@/lib/data";
 import { browserDB } from "@/lib/supabase";
+import Forecast from "./forecast";
 import { methodology } from "@/lib/methodology";
 const ShorelineModel = dynamic(() => import("./shoreline-model"), {
   ssr: false,
@@ -61,7 +62,7 @@ const SatelliteMap = dynamic(() => import("./satellite-map"), {
   loading: () => (
     <div className="map-loading">
       <Satellite />
-      Карта жүктелуде…
+      Loading map…
     </div>
   ),
 });
@@ -70,6 +71,7 @@ const routes = [
   ["explorer", "/explorer", Map],
   ["compare", "/compare", GitCompareArrows],
   ["analytics", "/analytics", ChartNoAxesCombined],
+  ["forecast", "/forecast", Clock],
   ["research", "/research", FlaskConical],
   ["shorelineAI", "/shoreline-ai", BrainCircuit],
   ["ai", "/ai-assistant", BrainCircuit],
@@ -98,7 +100,7 @@ async function api(path: string, body?: unknown) {
   });
   if (!r.ok) {
     const j: any = await r.json();
-    throw new Error(j.error || "Сұрау орындалмады");
+    throw new Error(j.error || "Request failed");
   }
   return r;
 }
@@ -109,9 +111,11 @@ async function calculate(input: unknown): Promise<Analysis> {
     const job: any = await (await api("jobs/" + queued.job_id)).json();
     if (job.status === "completed") return job.result as Analysis;
     if (job.status === "failed")
-      throw new Error(job.error || "Өңдеу орындалмады.");
+      throw new Error(job.error || "Processing failed.");
   }
-  throw new Error("Өңдеу ұзақ уақыт алуда. Жұмыс ID: " + queued.job_id);
+  throw new Error(
+    "Processing is taking longer than expected. Job ID: " + queued.job_id,
+  );
 }
 function download(name: string, data: string, type = "application/json") {
   const url = URL.createObjectURL(new Blob([data], { type })),
@@ -129,15 +133,14 @@ function readResults(): Analysis[] {
   }
 }
 export default function Platform({ page }: { page: string }) {
-  const [lang, setLang] = useState<Lang>("kk"),
-    [light, setLight] = useState(false),
+  const lang: Lang = "en";
+  const [light, setLight] = useState(false),
     [menu, setMenu] = useState(false),
     [status, setStatus] = useState<any>(null),
     [results, setResults] = useState<Analysis[]>([]);
   const t = words[lang];
   useEffect(() => {
-    const l = localStorage.getItem("cw-lang");
-    if (l === "en" || l === "ru") setLang(l);
+    localStorage.setItem("cw-lang", "en");
     setLight(localStorage.getItem("cw-theme") === "light");
     setResults(readResults());
     api("status")
@@ -171,17 +174,13 @@ export default function Platform({ page }: { page: string }) {
     document.documentElement.dataset.theme = light ? "light" : "dark";
     localStorage.setItem("cw-theme", light ? "light" : "dark");
   }, [light]);
-  function language(value: Lang) {
-    setLang(value);
-    localStorage.setItem("cw-lang", value);
-    document.documentElement.lang = value;
-  }
   function addResult(a: Analysis) {
     const next = [a, ...readResults()].slice(0, 30);
     localStorage.setItem("cw-results", JSON.stringify(next));
     setResults(next);
   }
-  const name = (t as any)[labelKey(page)] || t.home;
+  const name =
+    page === "forecast" ? "Forecast" : (t as any)[labelKey(page)] || t.home;
   return (
     <div className="app-shell">
       <aside className={"sidebar " + (menu ? "mobile-open" : "")}>
@@ -201,13 +200,7 @@ export default function Platform({ page }: { page: string }) {
         >
           <X />
         </button>
-        <div className="sidebar-label">
-          {lang === "en"
-            ? "WORKSPACE"
-            : lang === "ru"
-              ? "РАБОЧЕЕ ПРОСТРАНСТВО"
-              : "ЗЕРТТЕУ КЕҢІСТІГІ"}
-        </div>
+        <div className="sidebar-label">{"WORKSPACE"}</div>
         <nav>
           {routes.map(([key, url, Icon]) => (
             <Link
@@ -217,15 +210,13 @@ export default function Platform({ page }: { page: string }) {
               className={(labelKey(page) === key ? "active " : "") + "nav-link"}
             >
               <Icon size={19} />
-              <span>{t[key]}</span>
+              <span>{key === "forecast" ? "Forecast" : t[key]}</span>
               {key === "ai" && <span className="ai-tag">AI</span>}
               {labelKey(page) === key && <span className="nav-indicator" />}
             </Link>
           ))}
         </nav>
-        <div className="sidebar-label secondary">
-          {lang === "en" ? "RESOURCES" : lang === "ru" ? "РЕСУРСЫ" : "АҚПАРАТ"}
-        </div>
+        <div className="sidebar-label secondary">{"RESOURCES"}</div>
         <nav>
           <Link
             className={"nav-link " + (page === "methodology" ? "active" : "")}
@@ -254,13 +245,7 @@ export default function Platform({ page }: { page: string }) {
             <span className="mission-icon">
               <Leaf size={21} />
             </span>
-            <b>
-              {lang === "en"
-                ? "One sea. A shared future."
-                : lang === "ru"
-                  ? "Одно море. Общее будущее."
-                  : "Бір теңіз. Ортақ болашақ."}
-            </b>
+            <b>{"One sea. A shared future."}</b>
             <p>{t.footer}</p>
             <div>
               <span>SDG 13</span>
@@ -272,13 +257,7 @@ export default function Platform({ page }: { page: string }) {
             <span className="avatar">CW</span>
             <span>
               {t.dashboard}
-              <small>
-                {lang === "en"
-                  ? "Research workspace"
-                  : lang === "ru"
-                    ? "Пространство исследователя"
-                    : "Зерттеуші кеңістігі"}
-              </small>
+              <small>{"Research workspace"}</small>
             </span>
             <ChevronRight size={17} />
           </Link>
@@ -304,21 +283,9 @@ export default function Platform({ page }: { page: string }) {
               <span className={status?.copernicus ? "live-dot" : "muted-dot"} />
               {status?.copernicus
                 ? "COPERNICUS CONNECTED"
-                : lang === "en"
-                  ? "OPEN DATA PLATFORM"
-                  : lang === "ru"
-                    ? "ПЛАТФОРМА ОТКРЫТЫХ ДАННЫХ"
-                    : "АШЫҚ ДЕРЕКТЕР ПЛАТФОРМАСЫ"}
+                : "OPEN DATA PLATFORM"}
             </span>
-            <select
-              aria-label="Language"
-              value={lang}
-              onChange={(e) => language(e.target.value as Lang)}
-            >
-              <option value="kk">ҚАЗ</option>
-              <option value="ru">РУС</option>
-              <option value="en">ENG</option>
-            </select>
+            <span aria-label="Language">EN</span>
             <button
               className="icon-button"
               aria-label="Toggle theme"
@@ -356,6 +323,7 @@ export default function Platform({ page }: { page: string }) {
                   </Link>
                 )}
               </div>
+              {page === "forecast" && <Forecast results={results} />}
               {page === "shoreline-ai" && <ShorelineModel lang={lang} />}
               {page === "explorer" && (
                 <Explorer lang={lang} onResult={addResult} />
@@ -395,21 +363,8 @@ export default function Platform({ page }: { page: string }) {
   );
 }
 function descriptions(page: string, lang: Lang) {
-  const kk: Record<string, string> = {
-    explorer: "Нақты спутниктік деректер. Сіздің зерттеу аумағыңыз.",
-    compare: "Бір жағалау. Екі кезең. Өзгерісті деректер арқылы көріңіз.",
-    analytics: "Есептелген нәтижелерге сүйенген ғылыми аналитика.",
-    research: "Сұрақтан — ғылыми қорытындыға дейін.",
-    "research/new": "Зерттеу аумағы мен уақыт кезеңдерін таңдаңыз.",
-    "shoreline-ai": "Дайын модель арқылы су мен құрлықты ажыратыңыз.",
-    "ai-assistant": "Деректерді түсінуге көмектесетін ғылыми серіктес.",
-    gallery: "Ғарыштан көрінген Каспий. Тек шынайы түсірілімдер.",
-    methodology: "Әр өлшемнің артында — тексерілетін әдіс.",
-    sources: "Ашық дереккөздер және материалдардың шығу тегі.",
-    about: "Каспийдің бүгінін бақылап, ертеңін зерттейміз.",
-    dashboard: "Сіздің зерттеулеріңіз және платформа қосылымдары.",
-  };
   const en: Record<string, string> = {
+    forecast: "Choose a date and explore a trend based on measured water area.",
     explorer: "Real satellite data. Your area of interest.",
     compare: "One coastline. Two moments. Observe change through data.",
     analytics: "Scientific analytics from calculated results.",
@@ -423,21 +378,7 @@ function descriptions(page: string, lang: Lang) {
     about: "Watching the Caspian today. Studying its tomorrow.",
     dashboard: "Your research and platform connections.",
   };
-  const ru: Record<string, string> = {
-    explorer: "Реальные спутниковые данные. Ваша область исследования.",
-    compare: "Один берег. Два периода. Изучайте изменения по данным.",
-    analytics: "Научная аналитика рассчитанных результатов.",
-    research: "От вопроса к научному заключению.",
-    "research/new": "Выберите область и периоды наблюдения.",
-    "shoreline-ai": "Классифицируйте воду и сушу готовой моделью.",
-    "ai-assistant": "Научный партнёр для понимания данных.",
-    gallery: "Каспий из космоса. Только реальные снимки.",
-    methodology: "Проверяемый метод за каждым измерением.",
-    sources: "Открытые источники и происхождение материалов.",
-    about: "Наблюдаем за Каспием сегодня, исследуем его завтра.",
-    dashboard: "Ваши исследования и подключения платформы.",
-  };
-  return (lang === "en" ? en : lang === "ru" ? ru : kk)[page];
+  return en[page];
 }
 function Home({ lang, results }: { lang: Lang; results: Analysis[] }) {
   const t = words[lang];
@@ -510,31 +451,15 @@ function Home({ lang, results }: { lang: Lang; results: Analysis[] }) {
       </motion.section>
       <div className="stats-grid">
         {[
-          [
-            Satellite,
-            lang === "en"
-              ? "Latest processed scene"
-              : lang === "ru"
-                ? "Последний обработанный снимок"
-                : "Соңғы өңделген түсірілім",
-            results[0]?.after || "—",
-          ],
+          [Satellite, "Latest processed scene", results[0]?.after || "—"],
           [
             MapPin,
-            lang === "en"
-              ? "Areas analyzed"
-              : lang === "ru"
-                ? "Исследованные области"
-                : "Зерттелген аумақтар",
+            "Areas analyzed",
             results.length ? new Set(results.map((x) => x.region)).size : "—",
           ],
           [
             Layers,
-            lang === "en"
-              ? "Scenes processed"
-              : lang === "ru"
-                ? "Обработанные снимки"
-                : "Өңделген түсірілімдер",
+            "Scenes processed",
             results.length
               ? new Set(
                   results.flatMap((r) => [
@@ -547,7 +472,7 @@ function Home({ lang, results }: { lang: Lang; results: Analysis[] }) {
           [
             Activity,
             t.exposed,
-            results.length ? `${results[0].exposed_km2.toFixed(3)} км²` : "—",
+            results.length ? `${results[0].exposed_km2.toFixed(3)} km²` : "—",
           ],
         ].map(([Icon, label, value], i) => {
           const I = Icon as typeof Satellite;
@@ -559,13 +484,7 @@ function Home({ lang, results }: { lang: Lang; results: Analysis[] }) {
               </div>
               <strong>{String(value)}</strong>
               <small>
-                {results.length
-                  ? lang === "en"
-                    ? "Calculated research results"
-                    : lang === "ru"
-                      ? "Рассчитанные результаты исследований"
-                      : "Есептелген зерттеу нәтижелері"
-                  : t.unavailable}
+                {results.length ? "Calculated research results" : t.unavailable}
               </small>
             </div>
           );
@@ -573,30 +492,18 @@ function Home({ lang, results }: { lang: Lang; results: Analysis[] }) {
       </div>
       <div className="update-line">
         <Clock size={12} />
-        {lang === "en"
-          ? "Last calculated update"
-          : lang === "ru"
-            ? "Последнее обновление расчётов"
-            : "Соңғы есептеу жаңартуы"}
-        :{" "}
+        {"Last calculated update"}:{" "}
         {results.length
-          ? new Date(results[0].created_at).toLocaleString(
-              lang === "kk" ? "kk-KZ" : lang === "ru" ? "ru-RU" : "en-GB",
-              { timeZone: "Asia/Aqtau" },
-            )
+          ? new Date(results[0].created_at).toLocaleString("en-GB", {
+              timeZone: "Asia/Aqtau",
+            })
           : t.unavailable}
       </div>
       <section className="section">
         <div className="section-title">
           <div>
             <span className="eyebrow">EXPLORE THE CASPIAN</span>
-            <h2>
-              {lang === "en"
-                ? "A new perspective on a changing coast"
-                : lang === "ru"
-                  ? "Новый взгляд на меняющийся берег"
-                  : "Өзгерген жағалауға жаңа көзқарас"}
-            </h2>
+            <h2>{"A new perspective on a changing coast"}</h2>
           </div>
           <Link href="/research/new">
             {t.start}
@@ -618,11 +525,9 @@ function Home({ lang, results }: { lang: Lang; results: Analysis[] }) {
             <div className="feature-number">01 / OBSERVE</div>
             <h3>{t.explorer}</h3>
             <p>
-              {lang === "en"
-                ? "Find satellite scenes, draw a study area and explore spectral layers."
-                : lang === "ru"
-                  ? "Находите снимки, выделяйте область и изучайте спектральные слои."
-                  : "Түсірілімді табыңыз, аумақты белгілеңіз, спектрлік қабаттарды зерттеңіз."}
+              {
+                "Find satellite scenes, draw a study area and explore spectral layers."
+              }
             </p>
             <span className="feature-link">
               {t.open}
@@ -651,18 +556,10 @@ function Home({ lang, results }: { lang: Lang; results: Analysis[] }) {
             <div className="feature-number">02 / COMPARE</div>
             <h3>{t.compare}</h3>
             <p>
-              {lang === "en"
-                ? "Compare aligned observations and calculate water–land changes."
-                : lang === "ru"
-                  ? "Сравнивайте снимки и рассчитывайте изменения границы воды и суши."
-                  : "Екі кезеңді салыстырып, су мен құрлық шекарасының өзгерісін есептеңіз."}
+              {"Compare aligned observations and calculate water–land changes."}
             </p>
             <span className="feature-link">
-              {lang === "en"
-                ? "Compare periods"
-                : lang === "ru"
-                  ? "Сравнить периоды"
-                  : "Кезеңдерді салыстыру"}
+              {"Compare periods"}
               <ArrowUpRight size={18} />
             </span>
           </Link>
@@ -680,18 +577,12 @@ function Home({ lang, results }: { lang: Lang; results: Analysis[] }) {
             <div className="feature-number">03 / UNDERSTAND</div>
             <h3>{t.ai}</h3>
             <p>
-              {lang === "en"
-                ? "Ask scientific questions. Understand results and their limitations."
-                : lang === "ru"
-                  ? "Задавайте научные вопросы. Изучайте результаты и ограничения измерений."
-                  : "Ғылыми сұрақ қойыңыз. Нәтижелер мен өлшеу шектеулерін түсініңіз."}
+              {
+                "Ask scientific questions. Understand results and their limitations."
+              }
             </p>
             <span className="feature-link">
-              {lang === "en"
-                ? "Ask Caspian AI"
-                : lang === "ru"
-                  ? "Спросить Caspian AI"
-                  : "AI көмекшіге сұрақ қою"}
+              {"Ask Caspian AI"}
               <ArrowUpRight size={18} />
             </span>
           </Link>
@@ -700,19 +591,11 @@ function Home({ lang, results }: { lang: Lang; results: Analysis[] }) {
       <section className="region-section">
         <div className="region-intro">
           <span className="eyebrow">OUR FOCUS</span>
-          <h2>
-            {lang === "en"
-              ? "Research starts\nwith a place."
-              : lang === "ru"
-                ? "Исследование начинается\nс места."
-                : "Зерттеу нақты\nаумақтан басталады."}
-          </h2>
+          <h2>{"Research starts\nwith a place."}</h2>
           <p>
-            {lang === "en"
-              ? "From the coast of Aktau to the wider Caspian basin. Choose where your research begins."
-              : lang === "ru"
-                ? "От побережья Актау до всего Каспийского бассейна. Выберите начало своего исследования."
-                : "Ақтау жағалауынан бүкіл Каспий бассейніне дейін. Зерттеуіңіз басталатын аумақты таңдаңыз."}
+            {
+              "From the coast of Aktau to the wider Caspian basin. Choose where your research begins."
+            }
           </p>
           <Link href="/explorer">
             {t.open}
@@ -744,7 +627,7 @@ function Home({ lang, results }: { lang: Lang; results: Analysis[] }) {
               </span>
               <div>
                 <MapPin size={15} />
-                <h3>{lang === "en" ? r.en : lang === "ru" ? r.ru : r.name}</h3>
+                <h3>{r.en}</h3>
                 <small>
                   {r.center[1].toFixed(2)}° N · {r.center[0].toFixed(2)}° E
                 </small>
@@ -754,11 +637,9 @@ function Home({ lang, results }: { lang: Lang; results: Analysis[] }) {
           ))}
         </div>
         <small className="region-note">
-          {lang === "en"
-            ? "Illustrations: NASA Caspian archives; cards do not depict each city."
-            : lang === "ru"
-              ? "Иллюстрации: архив NASA по Каспию; снимки не изображают каждый город."
-              : "Иллюстрациялар: NASA Каспий архиві; суреттер әр қаланың нақты көрінісі емес."}
+          {
+            "Illustrations: NASA Caspian archives; cards do not depict each city."
+          }
         </small>
       </section>
       <section className="science-banner">
@@ -768,11 +649,9 @@ function Home({ lang, results }: { lang: Lang; results: Analysis[] }) {
         <div>
           <h3>{t.science}</h3>
           <p>
-            {lang === "en"
-              ? "Every result has a source, a method and a stated uncertainty. Shoreline change does not directly measure sea level."
-              : lang === "ru"
-                ? "Каждый результат имеет источник, метод и оценку неопределённости. Изменение береговой линии не является прямым измерением уровня моря."
-                : "Әр нәтиженің дереккөзі, әдісі және белгісіздік бағасы бар. Жағалау өзгерісі теңіз деңгейінің тікелей өлшемі емес."}
+            {
+              "Every result has a source, a method and a stated uncertainty. Shoreline change does not directly measure sea level."
+            }
           </p>
         </div>
         <Link className="button secondary" href="/methodology">
@@ -815,7 +694,7 @@ function RegionSelect({
       <select value={value} onChange={(e) => onChange(e.target.value)}>
         {regions.map((r) => (
           <option key={r.id} value={r.id}>
-            {lang === "en" ? r.en : lang === "ru" ? r.ru : r.name}
+            {r.en}
           </option>
         ))}
       </select>
@@ -911,11 +790,7 @@ function Explorer({
         <aside className="panel explorer-controls">
           <div className="panel-title">
             <Satellite size={18} />
-            {lang === "en"
-              ? "Scene search"
-              : lang === "ru"
-                ? "Поиск снимков"
-                : "Түсірілім іздеу"}
+            {"Scene search"}
             <span className="small-tag">L2A</span>
           </div>
           <RegionSelect
@@ -966,11 +841,7 @@ function Explorer({
           </button>
           <div className="control-divider" />
           <label className="field">
-            {lang === "en"
-              ? "Spectral layer"
-              : lang === "ru"
-                ? "Спектральный слой"
-                : "Спектрлік қабат"}
+            {"Spectral layer"}
             <select
               disabled={!!selected?.public_preview}
               value={layer}
@@ -987,11 +858,9 @@ function Explorer({
           <div className="info-note">
             <ShieldCheck size={17} />
             <p>
-              {lang === "en"
-                ? "NASA MODIS/VIIRS dates are selectable, including 2026. Public Sentinel-2 catalog and previews need no key; full spectral processing requires credentials."
-                : lang === "ru"
-                  ? "Можно выбрать даты NASA MODIS/VIIRS, включая 2026. Каталог и preview Sentinel-2 открыты; спектральная обработка требует ключей."
-                  : "NASA MODIS/VIIRS қабатында 2026 күндерін таңдаңыз. Sentinel-2 каталогы мен preview кілтсіз ашылады; толық спектрлік өңдеуге кілт қажет."}
+              {
+                "NASA MODIS/VIIRS dates are selectable, including 2026. Public Sentinel-2 catalog and previews need no key; full spectral processing requires credentials."
+              }
             </p>
           </div>
           {polygon && (
@@ -1026,11 +895,7 @@ function Explorer({
           onClick={() => setShowModel(!showModel)}
         >
           <BrainCircuit size={17} />
-          {lang === "en"
-            ? "Segment this image with AI"
-            : lang === "ru"
-              ? "Сегментировать снимок с AI"
-              : "Осы суретті AI моделіне беру"}
+          {"Segment this image with AI"}
         </button>
       )}
       {showModel && preview && selected && (
@@ -1050,11 +915,9 @@ function Explorer({
             <h3>Sentinel-2 · {selected.date.slice(0, 10)}</h3>
             <p>{selected.id}</p>
             <p>
-              {lang === "en"
-                ? "Official tile preview. Not a georeferenced raster for area measurement."
-                : lang === "ru"
-                  ? "Официальный preview тайла. Не георастр для измерения площади."
-                  : "Ресми тайл preview-ы. Аудан өлшеуге арналған георастр емес."}
+              {
+                "Official tile preview. Not a georeferenced raster for area measurement."
+              }
             </p>
             <button
               className="button secondary"
@@ -1075,11 +938,7 @@ function Explorer({
       <div className="panel scenes-panel">
         <div className="panel-title">
           <Layers size={18} />
-          {lang === "en"
-            ? "Available scenes"
-            : lang === "ru"
-              ? "Доступные снимки"
-              : "Қолжетімді түсірілімдер"}
+          {"Available scenes"}
           <span className="small-tag">{scenes.length}</span>
         </div>
         {!scenes.length ? (
@@ -1087,16 +946,8 @@ function Explorer({
             <Satellite size={27} />
             <div>
               {searched
-                ? lang === "en"
-                  ? "No scenes found. Try another date or cloud threshold."
-                  : lang === "ru"
-                    ? "Снимки не найдены. Выберите другую дату или порог облачности."
-                    : "Түсірілім табылмады. Басқа күнді немесе бұлттылық шегін таңдаңыз."
-                : lang === "en"
-                  ? "Choose an area and search the official catalog."
-                  : lang === "ru"
-                    ? "Выберите область и выполните поиск в официальном каталоге."
-                    : "Аумақты таңдап, ресми каталогтан іздеңіз."}
+                ? "No scenes found. Try another date or cloud threshold."
+                : "Choose an area and search the official catalog."}
             </div>
           </div>
         ) : (
@@ -1143,7 +994,12 @@ function Compare({
   onResult: (r: Analysis) => void;
 }) {
   const t = words[lang];
-  const [mode, setMode] = useState<"archive" | "sentinel" | "browse">("browse"),
+  const [mode, setMode] = useState<"archive" | "sentinel" | "browse">(() =>
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("mode") === "ndwi"
+        ? "sentinel"
+        : "browse",
+    ),
     [projectId, setProjectId] = useState<string | undefined>(),
     [region, setRegion] = useState("aktau"),
     [before, setBefore] = useState("2018-09-01"),
@@ -1192,7 +1048,7 @@ function Compare({
     setPair(null);
     try {
       if (before >= after)
-        throw new Error("Кейінгі күн бастапқы күннен үлкен болуы тиіс.");
+        throw new Error("The end date must be later than the start date.");
       const bs: any = await (
         await api("scenes", {
           bbox: reg.bbox,
@@ -1211,7 +1067,7 @@ function Compare({
       ).json();
       if (!bs.scenes.length || !as.scenes.length)
         throw new Error(
-          "Кемінде бір кезеңде түсірілім табылмады. Басқа күнді таңдаңыз.",
+          "No scene was found for at least one date. Choose another date.",
         );
       const br = await api("imagery", {
         bbox: reg.bbox,
@@ -1301,21 +1157,12 @@ function Compare({
             className={mode === "sentinel" ? "selected" : ""}
             onClick={() => setMode("sentinel")}
           >
-            Sentinel-2{" "}
-            {lang === "en"
-              ? "research"
-              : lang === "ru"
-                ? "исследование"
-                : "зерттеу"}
+            Sentinel-2 {"research"}
           </button>
         </div>
         <span className="subtle">
           <ShieldCheck size={16} />
-          {lang === "en"
-            ? "Same season · same extent"
-            : lang === "ru"
-              ? "Один сезон · одинаковые границы"
-              : "Бір маусым · бір географиялық шекара"}
+          {"Same season · same extent"}
         </span>
       </div>
       {mode === "sentinel" && (
@@ -1355,8 +1202,7 @@ function Compare({
             />
           </label>
           <label className="field">
-            NDWI{" "}
-            {lang === "en" ? "threshold" : lang === "ru" ? "порог" : "шегі"}
+            NDWI {"threshold"}
             <input
               type="number"
               min="-0.5"
@@ -1376,13 +1222,7 @@ function Compare({
           </label>
           <button className="button secondary" disabled={busy} onClick={load}>
             <Satellite size={16} />
-            {busy
-              ? t.loading
-              : lang === "en"
-                ? "Load pair"
-                : lang === "ru"
-                  ? "Загрузить снимки"
-                  : "Суреттерді жүктеу"}
+            {busy ? t.loading : "Load pair"}
           </button>
           <button className="button primary" disabled={busy} onClick={analyze}>
             {busy ? t.loading : t.run}
@@ -1432,44 +1272,20 @@ function Compare({
             value={slider}
             onChange={(e) => setSlider(+e.target.value)}
           />
-          <span className="slider-hint">
-            ←{" "}
-            {lang === "en"
-              ? "Drag to compare"
-              : lang === "ru"
-                ? "Перетащите для сравнения"
-                : "Салыстыру үшін сырғытыңыз"}{" "}
-            →
-          </span>
+          <span className="slider-hint">← {"Drag to compare"} →</span>
         </div>
       ) : (
         <div className="empty-state panel">
           <GitCompareArrows size={38} />
-          <h3>
-            {lang === "en"
-              ? "Choose two observation dates"
-              : lang === "ru"
-                ? "Выберите две даты наблюдения"
-                : "Екі түсірілім күнін таңдаңыз"}
-          </h3>
-          <p>
-            {lang === "en"
-              ? "Load georeferenced Sentinel-2 images from the official API."
-              : lang === "ru"
-                ? "Загрузите привязанные снимки Sentinel-2 через официальный API."
-                : "Ресми API арқылы бірдей шекарадағы Sentinel-2 суреттерін жүктеңіз."}
-          </p>
+          <h3>{"Choose two observation dates"}</h3>
+          <p>{"Load georeferenced Sentinel-2 images from the official API."}</p>
         </div>
       )}
       {mode === "sentinel" && (
         <details className="panel aoi-details">
           <summary>
             <MapPin size={17} />
-            {lang === "en"
-              ? "Define study polygon (optional; required for large regions)"
-              : lang === "ru"
-                ? "Выделить полигон (необходим для больших областей)"
-                : "Зерттеу полигонын белгілеу (үлкен аумақтар үшін қажет)"}
+            {"Define study polygon (optional; required for large regions)"}
           </summary>
           <SatelliteMap
             region={region}
@@ -1479,15 +1295,7 @@ function Compare({
               setResult(null);
             }}
           />
-          {polygon && (
-            <p className="fine-print">
-              {lang === "en"
-                ? "Study polygon selected"
-                : lang === "ru"
-                  ? "Полигон исследования выбран"
-                  : "Зерттеу полигоны таңдалды"}
-            </p>
-          )}
+          {polygon && <p className="fine-print">{"Study polygon selected"}</p>}
         </details>
       )}
       {error && <Notice text={error} />}
@@ -1495,16 +1303,8 @@ function Compare({
         success
         text={
           mode === "archive"
-            ? lang === "en"
-              ? "Real NASA archive pair, same calendar day. Visual comparison only: these JPEG images have no spectral bands or geotransform; no scientific area measurements are derived from them."
-              : lang === "ru"
-                ? "Реальная архивная пара NASA за одинаковый день года. Только визуальное сравнение: у JPEG нет спектральных каналов и геотрансформации; научные площади по ним не рассчитываются."
-                : "NASA-ның шынайы архивтік жұбы, бірдей күн мен маусым. Тек көрнекі салыстыру: JPEG файлдарда спектрлік арналар мен геотрансформация жоқ; олардан аудандар есептелмейді."
-            : lang === "en"
-              ? "NDWI uses 10 m B03/B08 bands and SCL screening. A one-pixel boundary sensitivity is not a calibrated confidence interval."
-              : lang === "ru"
-                ? "NDWI использует каналы B03/B08 с разрешением 10 м и маску SCL. Чувствительность границы в один пиксель не является калиброванным доверительным интервалом."
-                : "NDWI 10 м B03/B08 арналары мен SCL маскасын қолданады. Бір пиксельдік шекара сезімталдығы калибрленген сенімділік интервалы емес."
+            ? "Real NASA archive pair, same calendar day. Visual comparison only: these JPEG images have no spectral bands or geotransform; no scientific area measurements are derived from them."
+            : "NDWI uses 10 m B03/B08 bands and SCL screening. A one-pixel boundary sensitivity is not a calibrated confidence interval."
         }
       />
       {result && (
@@ -1513,13 +1313,7 @@ function Compare({
           {(result as any).ml_comparison && (
             <div className="panel ml-comparison">
               <h3>NDWI / SegFormer</h3>
-              <p>
-                {lang === "kk"
-                  ? "Жіктеуіштер арасындағы сәйкестік — нақты дәлдік бағасы емес."
-                  : lang === "ru"
-                    ? "Совпадение классификаторов — не оценка фактической точности."
-                    : "Classifier agreement is not measured accuracy."}
-              </p>
+              <p>{"Classifier agreement is not measured accuracy."}</p>
               <div>
                 {["before", "after"].map((key) => (
                   <span key={key}>
@@ -1532,7 +1326,7 @@ function Compare({
                     {(result as any).ml_comparison[
                       key
                     ].water_disagreement_km2.toFixed(4)}{" "}
-                    км²
+                    km²
                   </span>
                 ))}
               </div>
@@ -1560,53 +1354,28 @@ function ResultCards({ result: r, lang }: { result: Analysis; lang: Lang }) {
   return (
     <div className="stats-grid result-cards">
       {[
-        [t.exposed, r.exposed_km2.toFixed(4) + " км²"],
-        [t.flooded, r.flooded_km2.toFixed(4) + " км²"],
+        [t.exposed, r.exposed_km2.toFixed(4) + " km²"],
+        [t.flooded, r.flooded_km2.toFixed(4) + " km²"],
         [t.quality, (r.valid_fraction * 100).toFixed(1) + "%"],
-        [
-          lang === "en"
-            ? "Boundary sensitivity"
-            : lang === "ru"
-              ? "Чувствительность границы"
-              : "Шекара сезімталдығы",
-          "± " + r.uncertainty_km2.toFixed(4) + " км²",
-        ],
+        ["Boundary sensitivity", "± " + r.uncertainty_km2.toFixed(4) + " km²"],
       ].map(([a, b]) => (
         <div className="stat-card" key={a}>
           <div className="stat-label">{a}</div>
           <strong>{b}</strong>
           <small>
-            {r.algorithm} · {r.resolution_m} м
+            {r.algorithm} · {r.resolution_m} m
           </small>
         </div>
       ))}
       <div className="stat-card">
-        <div className="stat-label">
-          {lang === "en"
-            ? "Median boundary distance"
-            : lang === "ru"
-              ? "Медианное расстояние границ"
-              : "Медианалық шекара аралығы"}
-        </div>
+        <div className="stat-label">{"Median boundary distance"}</div>
         <strong>
-          {r.displacement_m === null ? "—" : r.displacement_m.toFixed(1) + " м"}
+          {r.displacement_m === null ? "—" : r.displacement_m.toFixed(1) + " m"}
         </strong>
-        <small>
-          {lang === "en"
-            ? "Symmetric nearest-boundary distance"
-            : lang === "ru"
-              ? "Симметричное расстояние ближайших границ"
-              : "Екі бағыттағы ең жақын шекара аралығы"}
-        </small>
+        <small>{"Symmetric nearest-boundary distance"}</small>
       </div>
       <div className="stat-card">
-        <div className="stat-label">
-          {lang === "en"
-            ? "Observation dates"
-            : lang === "ru"
-              ? "Даты снимков"
-              : "Түсірілім күндері"}
-        </div>
+        <div className="stat-label">{"Observation dates"}</div>
         <strong className="date-value">
           {r.before}
           <br />
@@ -1639,13 +1408,7 @@ function ExportButtons({
         project_id: projectId,
         title: `${results[0].region} · ${results[0].before} → ${results[0].after}`,
       });
-      setMessage(
-        lang === "en"
-          ? "Verified results saved to Supabase."
-          : lang === "ru"
-            ? "Проверенные результаты сохранены в Supabase."
-            : "Тексерілген нәтиже Supabase базасына сақталды.",
-      );
+      setMessage("Verified results saved to Supabase.");
     } catch (e) {
       setMessage((e as Error).message);
     } finally {
@@ -1731,8 +1494,8 @@ function ExportButtons({
         )}
       </div>
       <div className="print-report" ref={ref}>
-        <h1>CaspianWatch AI — ғылыми есеп</h1>
-        <p>Жағалау өзгерісі теңіз деңгейінің тікелей өлшемі емес.</p>
+        <h1>CaspianWatch AI — scientific report</h1>
+        <p>Shoreline change is not a direct sea-level measurement.</p>
         {results.map((r) => (
           <section key={r.id}>
             <h2>
@@ -1742,19 +1505,19 @@ function ExportButtons({
               Copernicus Sentinel-2 L2A · {r.before_scene} / {r.after_scene}
             </p>
             <p>
-              Ашылған құрлық: {r.exposed_km2} км²; су басқан аумақ:{" "}
-              {r.flooded_km2} км².
+              Exposed land: {r.exposed_km2} km²; flooded area: {r.flooded_km2}{" "}
+              km².
             </p>
             <p>
-              Жарамды аумақ: {r.valid_fraction * 100}%; шекара сезімталдығы: ±
-              {r.uncertainty_km2} км².
+              Valid coverage: {r.valid_fraction * 100}%; boundary sensitivity: ±
+              {r.uncertainty_km2} km².
             </p>
             <p>
-              {r.algorithm} · NDWI &gt; {r.threshold} · {r.resolution_m} м ·{" "}
+              {r.algorithm} · NDWI &gt; {r.threshold} · {r.resolution_m} m ·{" "}
               {r.projection}
             </p>
-            <p>Шектеулер: {r.limitations.join("; ")}</p>
-            <p>Есептелген: {r.created_at}</p>
+            <p>Limitations: {r.limitations.join("; ")}</p>
+            <p>Calculated: {r.created_at}</p>
           </section>
         ))}
       </div>
@@ -1773,16 +1536,10 @@ function Analytics({ lang, results }: { lang: Lang; results: Analysis[] }) {
         <label className="field">
           {t.region}
           <select value={region} onChange={(e) => setRegion(e.target.value)}>
-            <option value="all">
-              {lang === "en"
-                ? "All regions"
-                : lang === "ru"
-                  ? "Все регионы"
-                  : "Барлық аумақтар"}
-            </option>
+            <option value="all">{"All regions"}</option>
             {regions.map((r) => (
               <option key={r.id} value={r.id}>
-                {lang === "en" ? r.en : r.name}
+                {r.en}
               </option>
             ))}
           </select>
@@ -1795,7 +1552,7 @@ function Analytics({ lang, results }: { lang: Lang; results: Analysis[] }) {
           <div className="panel chart-panel">
             <div className="panel-title">
               <ChartNoAxesCombined size={19} />
-              {t.exposed} / {t.flooded} · км²
+              {t.exposed} / {t.flooded} · km²
             </div>
             <AnalyticsChart data={filtered} lang={lang} />
           </div>
@@ -1815,12 +1572,12 @@ function Analytics({ lang, results }: { lang: Lang; results: Analysis[] }) {
                 {filtered.map((r) => (
                   <tr key={r.id}>
                     <td>
-                      {regions.find((x) => x.id === r.region)?.name || r.region}
+                      {regions.find((x) => x.id === r.region)?.en || r.region}
                     </td>
                     <td>
                       {r.before} → {r.after}
                     </td>
-                    <td>{r.exposed_km2.toFixed(4)} км²</td>
+                    <td>{r.exposed_km2.toFixed(4)} km²</td>
                     <td>{(r.valid_fraction * 100).toFixed(1)}%</td>
                   </tr>
                 ))}
@@ -1832,11 +1589,9 @@ function Analytics({ lang, results }: { lang: Lang; results: Analysis[] }) {
         <Empty lang={lang} icon={ChartNoAxesCombined} href="/compare" />
       )}
       <p className="fine-print">
-        {lang === "en"
-          ? "Charts show calculated results from your database and this browser. Different extents and baselines are not directly comparable."
-          : lang === "ru"
-            ? "Графики показывают рассчитанные результаты из базы и этого браузера. Разные области и базовые периоды нельзя сравнивать напрямую."
-            : "График база мен осы браузерде сақталған нақты есептеулерді көрсетеді. Әртүрлі аумақтар мен бастапқы кезеңдер тікелей салыстырылмайды."}
+        {
+          "Charts show calculated results from your database and this browser. Different extents and baselines are not directly comparable."
+        }
       </p>
     </>
   );
@@ -1857,11 +1612,9 @@ function Empty({
       </div>
       <h3>{words[lang].empty}</h3>
       <p>
-        {lang === "en"
-          ? "Start your first study. Results will appear after real data has been processed."
-          : lang === "ru"
-            ? "Начните первое исследование. Результаты появятся после обработки реальных данных."
-            : "Алғашқы зерттеуді бастаңыз. Нәтижелер нақты деректер өңделгеннен кейін пайда болады."}
+        {
+          "Start your first study. Results will appear after real data has been processed."
+        }
       </p>
       <Link href={href} className="button primary">
         <Plus size={16} />
@@ -1892,7 +1645,7 @@ function Research({ lang }: { lang: Lang }) {
             <p>
               {p.region} · {p.before} → {p.after}
             </p>
-            <small>{new Date(p.created_at).toLocaleDateString()}</small>
+            <small>{new Date(p.created_at).toLocaleDateString("en-GB")}</small>
             <p>{p.notes}</p>
             <Link
               className="button secondary"
@@ -1946,7 +1699,7 @@ function NewResearch({ lang }: { lang: Lang }) {
     setSuccess(false);
     setMessage("");
     try {
-      if (before >= after) throw new Error("Күн аралығын тексеріңіз.");
+      if (before >= after) throw new Error("Check the date range.");
       const saved: any = await (
         await api("projects", {
           title,
@@ -1960,7 +1713,7 @@ function NewResearch({ lang }: { lang: Lang }) {
       setSavedId(saved.project.id);
       setSuccess(true);
       setMessage(
-        "Зерттеу Supabase базасына сақталды. Өңдеу үшін Уақыт машинасына өтіңіз.",
+        "Research saved to Supabase. Open Time Machine to process the observations.",
       );
     } catch (e) {
       setMessage((e as Error).message);
@@ -1983,13 +1736,7 @@ function NewResearch({ lang }: { lang: Lang }) {
             maxLength={150}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder={
-              lang === "en"
-                ? "e.g. Changes along the Aktau coast"
-                : lang === "ru"
-                  ? "Например: изменения побережья Актау"
-                  : "Мысалы: Ақтау жағалауының өзгерісі"
-            }
+            placeholder={"e.g. Changes along the Aktau coast"}
           />
         </label>
         <RegionSelect lang={lang} value={region} onChange={setRegion} />
@@ -2014,23 +1761,13 @@ function NewResearch({ lang }: { lang: Lang }) {
           </label>
         </div>
         <label className="field">
-          {lang === "en"
-            ? "Hypothesis and research notes"
-            : lang === "ru"
-              ? "Гипотеза и исследовательские заметки"
-              : "Гипотеза және зерттеу түсіндірмесі"}
+          {"Hypothesis and research notes"}
           <textarea
             rows={5}
             maxLength={10000}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder={
-              lang === "en"
-                ? "What do you want to investigate?"
-                : lang === "ru"
-                  ? "Что вы хотите исследовать?"
-                  : "Нені зерттегіңіз келеді?"
-            }
+            placeholder={"What do you want to investigate?"}
           />
         </label>
         {message && <Notice text={message} success={success} />}{" "}
@@ -2053,7 +1790,7 @@ function NewResearch({ lang }: { lang: Lang }) {
         )}
         <div className="form-actions">
           <Link className="button secondary" href="/research">
-            {lang === "en" ? "Back" : lang === "ru" ? "Назад" : "Артқа"}
+            {"Back"}
           </Link>
           <button className="button primary" disabled={busy}>
             <Database size={16} />
@@ -2063,34 +1800,12 @@ function NewResearch({ lang }: { lang: Lang }) {
       </form>
       <div className="panel research-guide">
         <span className="eyebrow">RESEARCH WORKFLOW</span>
-        <h2>
-          {lang === "en"
-            ? "A clear path to discovery"
-            : lang === "ru"
-              ? "Понятный путь к открытию"
-              : "Ғылыми зерттеудің айқын жолы"}
-        </h2>
+        <h2>{"A clear path to discovery"}</h2>
         {[
-          lang === "en"
-            ? "Define your question"
-            : lang === "ru"
-              ? "Сформулируйте вопрос"
-              : "Зерттеу сұрағын анықтаңыз",
-          lang === "en"
-            ? "Choose an area and two dates"
-            : lang === "ru"
-              ? "Выберите область и две даты"
-              : "Аумақ пен екі күнді таңдаңыз",
-          lang === "en"
-            ? "Compare and calculate NDWI"
-            : lang === "ru"
-              ? "Сравните и рассчитайте NDWI"
-              : "Салыстырып, NDWI есептеңіз",
-          lang === "en"
-            ? "Review quality and export"
-            : lang === "ru"
-              ? "Проверьте качество и экспортируйте"
-              : "Сапаны бағалап, есеп шығарыңыз",
+          "Define your question",
+          "Choose an area and two dates",
+          "Compare and calculate NDWI",
+          "Review quality and export",
         ].map((s, i) => (
           <div className="guide-step" key={i}>
             <b>0{i + 1}</b>
@@ -2111,27 +1826,12 @@ function Assistant({ lang }: { lang: Lang }) {
     [messages, setMessages] = useState<{ role: string; text: string }[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
-  const suggestions =
-    lang === "en"
-      ? [
-          "What is NDWI?",
-          "How has the Aktau coast changed since 2018?",
-          "Why do clouds affect measurements?",
-          "What are the limits of shoreline detection?",
-        ]
-      : lang === "ru"
-        ? [
-            "Что такое NDWI?",
-            "Как изменилось побережье Актау после 2018 года?",
-            "Почему облака влияют на измерения?",
-            "Каковы ограничения обнаружения береговой линии?",
-          ]
-        : [
-            "NDWI дегеніміз не?",
-            "Ақтау жағалауы 2018 жылдан кейін қалай өзгерді?",
-            "Неге спутниктік сурет бұлтты болып көрінеді?",
-            "Өлшеулердің шектеулері қандай?",
-          ];
+  const suggestions = [
+    "What is NDWI?",
+    "How has the Aktau coast changed since 2018?",
+    "Why do clouds affect measurements?",
+    "What are the limits of shoreline detection?",
+  ];
   async function send(text = input) {
     if (!text.trim() || busy) return;
     setMessages((m) => [...m, { role: "user", text }]);
@@ -2157,19 +1857,11 @@ function Assistant({ lang }: { lang: Lang }) {
             <BrainCircuit size={38} />
           </div>
           <span className="eyebrow">YOUR SCIENTIFIC PARTNER</span>
-          <h2>
-            {lang === "en"
-              ? "Let’s understand the Caspian."
-              : lang === "ru"
-                ? "Исследуем Каспий вместе."
-                : "Каспийді бірге зерттейік."}
-          </h2>
+          <h2>{"Let’s understand the Caspian."}</h2>
           <p>
-            {lang === "en"
-              ? "Ask about methods, explore hypotheses and interpret verified research."
-              : lang === "ru"
-                ? "Изучайте методы, формулируйте гипотезы и обсуждайте проверенные результаты."
-                : "Әдістерді түсініңіз, гипотеза құрыңыз, тексерілген зерттеу нәтижелерін талқылаңыз."}
+            {
+              "Ask about methods, explore hypotheses and interpret verified research."
+            }
           </p>
           <div className="suggestions">
             {suggestions.map((s) => (
@@ -2188,15 +1880,7 @@ function Assistant({ lang }: { lang: Lang }) {
                 {m.role === "user" ? "CW" : <BrainCircuit size={19} />}
               </span>
               <div>
-                <b>
-                  {m.role === "user"
-                    ? lang === "en"
-                      ? "You"
-                      : lang === "ru"
-                        ? "Вы"
-                        : "Сіз"
-                    : "Caspian AI"}
-                </b>
+                <b>{m.role === "user" ? "You" : "Caspian AI"}</b>
                 <p>{m.text}</p>
               </div>
             </div>
@@ -2223,13 +1907,7 @@ function Assistant({ lang }: { lang: Lang }) {
           value={input}
           maxLength={2000}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={
-            lang === "en"
-              ? "Ask a research question…"
-              : lang === "ru"
-                ? "Задайте исследовательский вопрос…"
-                : "Зерттеу сұрағыңызды жазыңыз…"
-          }
+          placeholder={"Ask a research question…"}
           aria-label="Message"
         />
         <button className="button primary" disabled={busy || !input.trim()}>
@@ -2239,11 +1917,9 @@ function Assistant({ lang }: { lang: Lang }) {
       </form>
       <p className="fine-print">
         <ShieldCheck size={13} />
-        {lang === "en"
-          ? "Numeric claims require saved database measurements. AI hypotheses need independent validation."
-          : lang === "ru"
-            ? "Численные выводы требуют измерений из базы. Гипотезы ИИ требуют независимой проверки."
-            : "Сандық қорытынды үшін базада сақталған өлшеулер қажет. AI гипотезалары тәуелсіз тексеруді талап етеді."}
+        {
+          "Numeric claims require saved database measurements. AI hypotheses need independent validation."
+        }
       </p>
     </div>
   );
@@ -2266,27 +1942,17 @@ function Gallery({ lang }: { lang: Lang }) {
               <img
                 loading="lazy"
                 src={p.image.replace(".jpg", "-preview.jpg")}
-                alt={p.title}
+                alt={p.en}
               />
               <span>
                 <Focus size={20} />
-                {lang === "en"
-                  ? "View full image"
-                  : lang === "ru"
-                    ? "Открыть полный размер"
-                    : "Толық өлшемде ашу"}
+                {"View full image"}
               </span>
             </button>
             <div className="gallery-info">
               <div className="eyebrow">{p.satellite}</div>
-              <h3>{lang === "en" ? p.en : lang === "ru" ? p.ru : p.title}</h3>
-              <p>
-                {lang === "en"
-                  ? p.descriptionEn
-                  : lang === "ru"
-                    ? p.descriptionRu
-                    : p.description}
-              </p>
+              <h3>{p.en}</h3>
+              <p>{p.descriptionEn}</p>
               <div>
                 <Clock size={14} />
                 {p.date}
@@ -2317,7 +1983,7 @@ function Gallery({ lang }: { lang: Lang }) {
           className="modal"
           role="dialog"
           aria-modal="true"
-          aria-label={active.title}
+          aria-label={active.en}
           onClick={() => setActive(null)}
         >
           <button
@@ -2328,14 +1994,9 @@ function Gallery({ lang }: { lang: Lang }) {
             <X />
           </button>
           <div onClick={(e) => e.stopPropagation()}>
-            <img src={active.image} alt={active.title} />
+            <img src={active.image} alt={active.en} />
             <h3>
-              {lang === "en"
-                ? active.en
-                : lang === "ru"
-                  ? active.ru
-                  : active.title}{" "}
-              · {active.date}
+              {active.en} · {active.date}
             </h3>
             <p>{active.credit}</p>
             <a href={active.image} download className="button secondary">
@@ -2371,13 +2032,7 @@ function Methodology({ lang }: { lang: Lang }) {
       </div>
       <aside className="panel method-nav">
         <span className="eyebrow">NDWI BASELINE · v1.0</span>
-        <h3>
-          {en
-            ? "Reproducible science"
-            : lang === "ru"
-              ? "Воспроизводимая наука"
-              : "Қайталанатын ғылым"}
-        </h3>
+        <h3>{en ? "Reproducible science" : "Reproducible science"}</h3>
         {sections.map(([s], i) => (
           <a href={"#step-" + i} key={s}>
             <span>0{i + 1}</span>
@@ -2423,11 +2078,9 @@ function About({ lang }: { lang: Lang }) {
           <span className="eyebrow">SCIENCE FOR OUR SHARED SEA</span>
           <h2>{words[lang].footer}</h2>
           <p>
-            {lang === "en"
-              ? "CaspianWatch AI makes coastal research accessible to students and researchers. Satellite observations and transparent methods support evidence-based environmental inquiry, beginning on Kazakhstan’s Aktau coast."
-              : lang === "ru"
-                ? "CaspianWatch AI делает исследования побережья доступными для школьников и исследователей. Спутниковые наблюдения и прозрачные методы помогают изучать окружающую среду, начиная с побережья Актау."
-                : "CaspianWatch AI оқушылар мен зерттеушілерге жағалау өзгерістерін зерттеуді қолжетімді етеді. Қазақстанның Ақтау жағалауынан басталған жоба спутниктік бақылаулар мен ашық әдістерге сүйенеді."}
+            {
+              "CaspianWatch AI makes coastal research accessible to students and researchers. Satellite observations and transparent methods support evidence-based environmental inquiry, beginning on Kazakhstan’s Aktau coast."
+            }
           </p>
           <Link className="button primary" href="/research/new">
             {words[lang].start}
@@ -2438,14 +2091,14 @@ function About({ lang }: { lang: Lang }) {
       </section>
       <div className="sdg-grid">
         {[
-          ["13", "CLIMATE ACTION", "Климаттың өзгеруіне қарсы күрес"],
-          ["14", "LIFE BELOW WATER", "Су экожүйелерін сақтау"],
-          ["9", "INDUSTRY & INNOVATION", "Инновациялар және инфрақұрылым"],
+          ["13", "CLIMATE ACTION", "Climate action"],
+          ["14", "LIFE BELOW WATER", "Protect aquatic ecosystems"],
+          ["9", "INDUSTRY & INNOVATION", "Innovation and infrastructure"],
         ].map(([n, en, kk]) => (
           <div className="panel sdg-card" key={n}>
             <span>{n}</span>
             <Leaf size={25} />
-            <h3>{lang === "en" ? en : kk}</h3>
+            <h3>{en}</h3>
             <small>UN SUSTAINABLE DEVELOPMENT GOALS</small>
           </div>
         ))}
@@ -2479,16 +2132,14 @@ function Dashboard({
     setMessage("");
     try {
       const db = browserDB();
-      if (!db) throw new Error("Supabase қосылымы орнатылмаған.");
+      if (!db) throw new Error("Supabase is not connected.");
       const r = signup
         ? await db.auth.signUp({ email, password })
         : await db.auth.signInWithPassword({ email, password });
       if (r.error) throw r.error;
       setUser(r.data.user?.email || null);
       setMessage(
-        signup
-          ? "Тіркелу орындалды. Электрондық поштаңызды растаңыз."
-          : "Кіру орындалды.",
+        signup ? "Account created. Confirm your email address." : "Signed in.",
       );
     } catch (e) {
       setMessage((e as Error).message);
@@ -2534,11 +2185,7 @@ function Dashboard({
                 />
               </label>
               <label className="field">
-                {lang === "en"
-                  ? "Password"
-                  : lang === "ru"
-                    ? "Пароль"
-                    : "Құпиясөз"}
+                {"Password"}
                 <input
                   required
                   type="password"
@@ -2549,28 +2196,14 @@ function Dashboard({
                 />
               </label>
               <button className="button primary full" disabled={busy}>
-                {busy
-                  ? t.loading
-                  : signup
-                    ? lang === "en"
-                      ? "Create account"
-                      : lang === "ru"
-                        ? "Регистрация"
-                        : "Тіркелу"
-                    : t.login}
+                {busy ? t.loading : signup ? "Create account" : t.login}
               </button>
               <button
                 className="text-button"
                 type="button"
                 onClick={() => setSignup(!signup)}
               >
-                {signup
-                  ? t.login
-                  : lang === "en"
-                    ? "Create a research account"
-                    : lang === "ru"
-                      ? "Создать аккаунт исследователя"
-                      : "Зерттеуші аккаунтын ашу"}
+                {signup ? t.login : "Create a research account"}
               </button>
             </form>
           )}
@@ -2591,37 +2224,21 @@ function Dashboard({
               <span className={status?.[key] ? "live-dot" : "muted-dot"} />
               <b>{name}</b>
               <span className={status?.[key] ? "connected" : ""}>
-                {status?.[key]
-                  ? lang === "en"
-                    ? "Configured"
-                    : lang === "ru"
-                      ? "Настроено"
-                      : "Бапталған"
-                  : lang === "en"
-                    ? "Not configured"
-                    : lang === "ru"
-                      ? "Не подключено"
-                      : "Қосылмаған"}
+                {status?.[key] ? "Configured" : "Not configured"}
               </span>
             </div>
           ))}
           <p className="fine-print">
-            {lang === "en"
-              ? "Configuration indicators do not verify credentials. Secrets are stored on the server."
-              : lang === "ru"
-                ? "Индикаторы показывают наличие настроек, а не действительность ключей. Секреты хранятся на сервере."
-                : "Күй кілттердің орнатылғанын көрсетеді; олардың жарамдылығын растамайды. Құпиялар серверде сақталады."}
+            {
+              "Configuration indicators do not verify credentials. Secrets are stored on the server."
+            }
           </p>
         </div>
       </div>
       <div className="panel local-results">
         <div className="panel-title">
           <Database size={18} />
-          {lang === "en"
-            ? "Results in this browser"
-            : lang === "ru"
-              ? "Результаты в этом браузере"
-              : "Осы браузердегі нәтижелер"}
+          {"Results in this browser"}
           <span className="small-tag">{results.length}</span>
         </div>
         <ExportButtons results={results} lang={lang} />

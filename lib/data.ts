@@ -82,7 +82,7 @@ export const photos = [
     ru: "Набережная Актау",
     image: "/images/aktau.jpg",
     date: "2026-05-16",
-    satellite: "Жерүсті фотосы / Ground photography",
+    satellite: "Ground photography",
     source: "Wikimedia Commons",
     url: "https://commons.wikimedia.org/wiki/File:On_the_Caspian_Sea_waterfront_in_Aktau,_Kazakhstan.jpg",
     credit: "IvarT",
@@ -102,7 +102,7 @@ export const photos = [
     ru: "Луна над побережьем Актау",
     image: "/images/aktau-moon.jpg",
     date: "2012-07-21",
-    satellite: "Жерүсті фотосы / Ground photography",
+    satellite: "Ground photography",
     source: "Wikimedia Commons",
     url: "https://commons.wikimedia.org/wiki/File:Moon_above_the_Caspian_Sea_in_Aktau.JPG",
     credit: "Rassim",
@@ -187,6 +187,8 @@ export const photos = [
   },
 ];
 export type Analysis = {
+  bbox?: number[];
+  polygon?: unknown;
   id: string;
   created_at: string;
   algorithm: string;
@@ -211,17 +213,17 @@ export type Analysis = {
 export const sources = [
   [
     "Copernicus public STAC",
-    "2026 Sentinel-2 каталогы мен ресми quicklook; іздеу кілтсіз",
+    "2026 Sentinel-2 catalog and official quicklooks; search without an API key",
     "https://documentation.dataspace.copernicus.eu/APIs/STAC.html",
   ],
   [
     "NASA GIBS / Worldview",
-    "MODIS / VIIRS күндік қабаттары, 2026 суреттерін таңдау",
+    "Daily MODIS / VIIRS layers with date selection",
     "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/1.0.0/WMTSCapabilities.xml",
   ],
   [
-    "CoastSeg дайын AI модельдері",
-    "SegFormer · су, толқын, шөгінді, басқа құрлық; Каспийде валидация қажет",
+    "CoastSeg pretrained AI models",
+    "SegFormer: water, whitewater, sediment and other land; Caspian validation is required",
     "https://satelliteshorelines.github.io/CoastSeg/models/",
   ],
   [
@@ -231,22 +233,22 @@ export const sources = [
   ],
   [
     "NASA Earth Observatory",
-    "Архивтік суреттер және түсірілім метадеректері",
+    "Archive imagery and acquisition metadata",
     "https://science.nasa.gov/earth/earth-observatory/",
   ],
   [
     "NASA MODIS",
-    "Солтүстік Каспийдің 2006 / 2024 салыстыру жұбы",
+    "North Caspian comparison from 2006 and 2024",
     "https://modis.gsfc.nasa.gov/gallery/individual.php?db_date=2024-10-08",
   ],
   [
     "OpenStreetMap",
-    "Базалық карта · © OpenStreetMap contributors · ODbL",
+    "Base map · © OpenStreetMap contributors · ODbL",
     "https://www.openstreetmap.org/copyright",
   ],
   [
-    "NASA пайдалану шарттары",
-    "NASA материалдарына арналған медиа нұсқаулығы; авторлық атрибуция сақталады",
+    "NASA usage terms",
+    "NASA media guidance; original attribution is preserved",
     "https://www.nasa.gov/nasa-brand-center/images-and-media/",
   ],
 ];

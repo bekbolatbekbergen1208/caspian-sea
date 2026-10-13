@@ -45,7 +45,7 @@ export default function SatelliteMap({
   useEffect(() => {
     fetch("/api/browse-metadata")
       .then((r) => {
-        if (!r.ok) throw new Error("NASA метадеректері жүктелмеді");
+        if (!r.ok) throw new Error("NASA metadata could not be loaded");
         return r.json();
       })
       .then((j: any) => {
@@ -123,7 +123,7 @@ export default function SatelliteMap({
         setPoints((p) => [...p, [e.lngLat.lng, e.lngLat.lat]]);
     });
     m.on("error", () =>
-      setError("Карта қабаты жүктелмеді. Интернет қосылымын тексеріңіз."),
+      setError("Map layer could not be loaded. Check your connection."),
     );
     return () => {
       m.remove();
@@ -231,7 +231,7 @@ export default function SatelliteMap({
   }, [showShore]);
   function finish() {
     if (points.length < 3) {
-      setError("Полигон үшін кемінде үш нүкте белгілеңіз.");
+      setError("Select at least three points for a polygon.");
       return;
     }
     const p = { type: "Polygon", coordinates: [[...points, points[0]]] };
@@ -250,7 +250,7 @@ export default function SatelliteMap({
         a.href = m.getCanvas().toDataURL("image/png");
         a.click();
       } catch {
-        setError("PNG экспорты орындалмады.");
+        setError("PNG export failed.");
       }
     });
   }
@@ -304,13 +304,7 @@ export default function SatelliteMap({
               if (e.target.value) setBrowseDate(e.target.value);
             }}
           />
-          <span>
-            {lang === "en"
-              ? "Daily browse imagery; not a 10 m measurement"
-              : lang === "ru"
-                ? "Дневной обзорный слой; не измерение 10 м"
-                : "Күндік шолу қабаты; 10 м өлшеу емес"}
-          </span>
+          <span>{"Daily browse imagery; not a 10 m measurement"}</span>
         </div>
       )}
       <div className="map-tools">
@@ -345,9 +339,7 @@ export default function SatelliteMap({
       </div>
       {drawing && (
         <div className="draw-tip">
-          {lang === "en"
-            ? "Click at least 3 points on the map"
-            : "Картада кемінде 3 нүкте белгілеңіз"}{" "}
+          {"Click at least 3 points on the map"}{" "}
           <button onClick={finish}>
             <Check size={16} />
             {t.finish}
@@ -375,7 +367,7 @@ export default function SatelliteMap({
               onChange={(e) => setShowShore(e.target.checked)}
             />
             <i />
-            {lang === "en" ? "Detected shoreline" : "Есептелген жағалау"}
+            {"Detected shoreline"}
           </label>
         )}
       </div>

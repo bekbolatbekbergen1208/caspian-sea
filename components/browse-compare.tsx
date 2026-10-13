@@ -56,7 +56,7 @@ export default function BrowseCompare({ lang }: { lang: Lang }) {
     setPair(null);
     try {
       if (before >= after)
-        throw new Error("Бастапқы күн кейінгі күннен ертерек болуы тиіс.");
+        throw new Error("The start date must be earlier than the end date.");
       const reg = regions.find((r) => r.id === region)!;
       const bbox = region === "aktau" ? [50.9, 43.4, 51.5, 43.9] : reg.bbox;
       const responses = await Promise.all(
@@ -78,7 +78,7 @@ export default function BrowseCompare({ lang }: { lang: Lang }) {
         after: URL.createObjectURL(responses[1]),
         dates: [before, after],
         source: config.title,
-        region: reg.name,
+        region: reg.en,
       });
     } catch (e) {
       setError((e as Error).message);
@@ -100,7 +100,7 @@ export default function BrowseCompare({ lang }: { lang: Lang }) {
           >
             {regions.map((r) => (
               <option key={r.id} value={r.id}>
-                {lang === "en" ? r.en : lang === "ru" ? r.ru : r.name}
+                {r.en}
               </option>
             ))}
           </select>
@@ -147,13 +147,7 @@ export default function BrowseCompare({ lang }: { lang: Lang }) {
         </label>
         <button className="button primary" disabled={busy} onClick={load}>
           <Satellite size={16} />
-          {busy
-            ? t.loading
-            : lang === "en"
-              ? "Load NASA comparison"
-              : lang === "ru"
-                ? "Сравнить снимки NASA"
-                : "NASA суреттерін салыстыру"}
+          {busy ? t.loading : "Load NASA comparison"}
         </button>
       </div>
       {error && (
@@ -220,30 +214,16 @@ export default function BrowseCompare({ lang }: { lang: Lang }) {
       ) : (
         <div className="panel empty-state">
           <Satellite size={36} />
-          <h3>
-            {lang === "en"
-              ? "Compare real 2026 observations"
-              : lang === "ru"
-                ? "Сравнивайте реальные снимки 2026 года"
-                : "2026 жылғы шынайы суреттерді салыстырыңыз"}
-          </h3>
-          <p>
-            {lang === "en"
-              ? "Choose two dates and load NASA imagery. No API key needed."
-              : lang === "ru"
-                ? "Выберите две даты и загрузите снимки NASA. API-ключ не нужен."
-                : "Екі күнді таңдап, NASA суреттерін жүктеңіз. API кілті қажет емес."}
-          </p>
+          <h3>{"Compare real 2026 observations"}</h3>
+          <p>{"Choose two dates and load NASA imagery. No API key needed."}</p>
         </div>
       )}
       <div className="notice success">
         <AlertCircle size={18} />
         <span>
-          {lang === "en"
-            ? "NASA daily browse imagery on the same extent and 768 × 768 grid. Visual comparison only: no spectral NDWI or area measurement. Clouds and missing coverage can obscure the coastline."
-            : lang === "ru"
-              ? "Дневные обзорные снимки NASA на одинаковых границах и сетке 768 × 768. Только визуальное сравнение: NDWI и площадь не рассчитываются. Облака и пропуски могут скрывать берег."
-              : "NASA күндік шолу суреттері бірдей шекара мен 768 × 768 торда салыстырылады. Тек көрнекі салыстыру: NDWI және аудан есептелмейді. Бұлт пен түсірілімнің болмауы жағалауды жасыруы мүмкін."}
+          {
+            "NASA daily browse imagery on the same extent and 768 × 768 grid. Visual comparison only: no spectral NDWI or area measurement. Clouds and missing coverage can obscure the coastline."
+          }
         </span>
       </div>
     </div>

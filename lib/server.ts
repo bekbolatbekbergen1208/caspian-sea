@@ -20,7 +20,7 @@ export function limit(request: Request) {
     buckets.set(key, b);
   }
   if (++b.n > 30)
-    throw new AppError(429, "Сұрау тым көп. Бір минуттан кейін қайталаңыз.");
+    throw new AppError(429, "Too many requests. Try again in one minute.");
   if (buckets.size > 2000)
     for (const [k, v] of buckets) if (v.until < now) buckets.delete(k);
 }
@@ -43,10 +43,10 @@ export async function fetchRetry(
     }
     throw new AppError(
       response.status === 401 ? 502 : 503,
-      "Сыртқы сервис сұрауды қабылдамады. Кілттерді, квотаны және қосылымды тексеріңіз.",
+      "The provider rejected the request. Check credentials, quota and connection.",
     );
   }
-  throw new AppError(503, "Сервис уақытша қолжетімсіз");
+  throw new AppError(503, "Service temporarily unavailable");
 }
 let cachedToken: { token: string; expires: number } | undefined;
 export async function copernicusToken() {
@@ -56,7 +56,7 @@ export async function copernicusToken() {
   if (!id || !secret)
     throw new AppError(
       503,
-      "Copernicus қосылмаған. COPERNICUS_CLIENT_ID және COPERNICUS_CLIENT_SECRET серверде орнатылуы керек. NASA архивін және базалық картаны қолдануға болады.",
+      "Copernicus is not connected. Configure COPERNICUS_CLIENT_ID and COPERNICUS_CLIENT_SECRET on the server. NASA imagery and the base map remain available.",
     );
   const r = await fetchRetry(
     "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token",
@@ -84,7 +84,7 @@ export const bounds = z
     z.number().min(46).max(55),
     z.number().min(36).max(48),
   ])
-  .refine((b) => b[0] < b[2] && b[1] < b[3], "Жарамсыз шекара");
+  .refine((b) => b[0] < b[2] && b[1] < b[3], "Invalid bounds");
 export const date = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -93,7 +93,7 @@ export const date = z
       !Number.isNaN(Date.parse(d)) &&
       new Date(d).toISOString().slice(0, 10) === d &&
       d <= new Date().toISOString().slice(0, 10),
-    "Жарамсыз күн",
+    "Invalid date",
   );
 export const querySchema = z
   .object({
@@ -102,7 +102,7 @@ export const querySchema = z
     end: date,
     cloud: z.number().min(0).max(100).default(20),
   })
-  .refine((x) => x.start <= x.end, "Күн аралығы дұрыс емес");
+  .refine((x) => x.start <= x.end, "Invalid date range");
 export const imagerySchema = z.object({
   bbox: bounds,
   date: date,
@@ -197,7 +197,7 @@ export async function geoRequest(path: string, body?: unknown) {
   if (!url || !key)
     throw new AppError(
       503,
-      "NDWI өңдеу сервисі қосылмаған. Python сервисін іске қосып, GEO_API_URL және GEO_API_KEY орнатыңыз. Сандық нәтиже есептелген жоқ.",
+      "NDWI processing is not connected. Start the Python service and configure GEO_API_URL and GEO_API_KEY. No numerical result has been calculated.",
     );
   const r = await fetch(url.replace(/\/$/, "") + path, {
     method: body ? "POST" : "GET",
@@ -209,7 +209,7 @@ export async function geoRequest(path: string, body?: unknown) {
   if (!r.ok)
     throw new AppError(
       r.status === 401 ? 502 : r.status,
-      typeof j.detail === "string" ? j.detail : "Өңдеу сұрауы орындалмады.",
+      typeof j.detail === "string" ? j.detail : "Processing request failed.",
     );
   return j;
 }

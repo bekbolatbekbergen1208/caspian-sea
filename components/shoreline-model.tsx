@@ -200,13 +200,7 @@ export default function ShorelineModel({
         };
       }
       timeout.current = setTimeout(() => {
-        setError(
-          lang === "kk"
-            ? "Есептеу 3 минуттан асты. Қуаттырақ құрылғыда қайталаңыз."
-            : lang === "ru"
-              ? "Расчёт превысил 3 минуты. Попробуйте более мощное устройство."
-              : "Inference exceeded 3 minutes. Try a more capable device.",
-        );
+        setError("Inference exceeded 3 minutes. Try a more capable device.");
         stop();
       }, 180000);
       worker.current.postMessage({ type: "segment", rgba }, [rgba.buffer]);

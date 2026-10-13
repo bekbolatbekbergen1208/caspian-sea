@@ -40,7 +40,7 @@ export async function browseMetadata() {
       .filter((x) => x.latest),
   };
   if (!data.layers.length)
-    throw new AppError(503, "NASA қабат метадеректері табылмады.");
+    throw new AppError(503, "NASA layer metadata is unavailable.");
   capabilitiesCache = { until: Date.now() + 3600000, data };
   return data;
 }
@@ -61,7 +61,7 @@ export async function browseImage(input: z.infer<typeof browseImageSchema>) {
   )
     throw new AppError(
       404,
-      "Бұл күнде NASA қабаты қолжетімсіз. Басқа күнді таңдаңыз.",
+      "The NASA layer is unavailable on this date. Choose another date.",
     );
   const q = new URLSearchParams({
     SERVICE: "WMS",
@@ -81,7 +81,7 @@ export async function browseImage(input: z.infer<typeof browseImageSchema>) {
     "https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi?" + q,
   );
   if (!r.headers.get("Content-Type")?.includes("image/png"))
-    throw new AppError(502, "NASA суреті алынбады.");
+    throw new AppError(502, "NASA image could not be retrieved.");
   return r;
 }
 export async function publicCatalog(input: z.infer<typeof querySchema>) {
@@ -126,7 +126,7 @@ export async function publicPreview(id: string) {
   );
   const item: any = await r.json();
   const href = item.assets?.thumbnail?.href;
-  if (!href) throw new AppError(404, "Түсірілім preview-ы жоқ.");
+  if (!href) throw new AppError(404, "No scene preview is available.");
   const url = new URL(href);
   if (
     url.protocol !== "https:" ||
@@ -135,6 +135,6 @@ export async function publicPreview(id: string) {
     ) ||
     !/^\/odata\/v1\/Assets\([a-f0-9-]+\)\/\$value$/.test(url.pathname)
   )
-    throw new AppError(502, "Preview мекенжайы қолдау көрсетілмейді.");
+    throw new AppError(502, "Preview URL is not supported.");
   return fetchRetry(url.href);
 }

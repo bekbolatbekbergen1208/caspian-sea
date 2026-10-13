@@ -3184,3 +3184,44 @@ textarea {
   overflow-y: auto;
   overflow-x: hidden;
 }
+.forecast-layout {
+  display: grid;
+  gap: 20px;
+}
+.forecast-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin: 24px 0;
+}
+.forecast-controls label {
+  display: grid;
+  gap: 8px;
+  min-width: 200px;
+}
+.forecast-controls input,
+.forecast-controls select {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: inherit;
+}
+.forecast-number {
+  display: grid;
+  gap: 10px;
+  padding: 24px 0;
+}
+.forecast-number strong {
+  font-size: 42px;
+  color: var(--cyan);
+}
+.forecast-number small {
+  font-size: 20px;
+}
+.forecast-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}

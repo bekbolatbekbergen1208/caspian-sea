@@ -12,6 +12,7 @@ export default async function Page({
       "explorer",
       "compare",
       "analytics",
+      "forecast",
       "research",
       "research/new",
       "ai-assistant",
