@@ -48,6 +48,7 @@ import { words, Lang } from "@/lib/i18n";
 import { regions, photos, sources, Analysis } from "@/lib/data";
 import { browserDB } from "@/lib/supabase";
 import Forecast from "./forecast";
+import Sea from "./sea";
 import { methodology } from "@/lib/methodology";
 const ShorelineModel = dynamic(() => import("./shoreline-model"), {
   ssr: false,
@@ -68,6 +69,7 @@ const SatelliteMap = dynamic(() => import("./satellite-map"), {
 });
 const routes = [
   ["home", "/", LayoutDashboard],
+  ["sea", "/sea", Waves],
   ["explorer", "/explorer", Map],
   ["compare", "/compare", GitCompareArrows],
   ["analytics", "/analytics", ChartNoAxesCombined],
@@ -180,7 +182,11 @@ export default function Platform({ page }: { page: string }) {
     setResults(next);
   }
   const name =
-    page === "forecast" ? "Forecast" : (t as any)[labelKey(page)] || t.home;
+    page === "sea"
+      ? "Sea"
+      : page === "forecast"
+        ? "Forecast"
+        : (t as any)[labelKey(page)] || t.home;
   return (
     <div className="app-shell">
       <aside className={"sidebar " + (menu ? "mobile-open" : "")}>
@@ -210,7 +216,13 @@ export default function Platform({ page }: { page: string }) {
               className={(labelKey(page) === key ? "active " : "") + "nav-link"}
             >
               <Icon size={19} />
-              <span>{key === "forecast" ? "Forecast" : t[key]}</span>
+              <span>
+                {key === "sea"
+                  ? "Sea"
+                  : key === "forecast"
+                    ? "Forecast"
+                    : t[key]}
+              </span>
               {key === "ai" && <span className="ai-tag">AI</span>}
               {labelKey(page) === key && <span className="nav-indicator" />}
             </Link>
@@ -323,6 +335,7 @@ export default function Platform({ page }: { page: string }) {
                   </Link>
                 )}
               </div>
+              {page === "sea" && <Sea />}
               {page === "forecast" && <Forecast results={results} />}
               {page === "shoreline-ai" && <ShorelineModel lang={lang} />}
               {page === "explorer" && (
@@ -364,6 +377,7 @@ export default function Platform({ page }: { page: string }) {
 }
 function descriptions(page: string, lang: Lang) {
   const en: Record<string, string> = {
+    sea: "Discover the Caspian Sea, its coastlines and the evidence behind their change.",
     forecast:
       "Choose a date for a satellite-based water-level estimate and conditional shoreline scenarios.",
     explorer: "Real satellite data. Your area of interest.",

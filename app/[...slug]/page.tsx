@@ -9,6 +9,7 @@ export default async function Page({
   const page = slug.join("/");
   if (
     ![
+      "sea",
       "explorer",
       "compare",
       "analytics",
